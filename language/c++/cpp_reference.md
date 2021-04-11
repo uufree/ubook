@@ -2022,8 +2022,8 @@ multiset、set在插入时是自动排序的，且自动排序的优点使得查
       virtual ~exception();
       virtual const char* what() const noexcept;
   }
-  ```
-  
+```
+
 - `std::bad_alloc`：使用 new 或 new[ ] 分配内存失败时抛出的异常
   
 - `std::bad_cast`：使用 dynamic_cast 转换失败时抛出的异常
