@@ -223,3 +223,47 @@
   - 函数调用运算符：`Blob& operator()(int val);`
 
 ## 第15章 面向对象程序设计
+
+- 面向对象的核心思想：**数据抽象、继承、动态绑定**
+
+- **override、final**关键字
+
+- 强制执行指定的虚函数版本：`bulk->Base::insert(10);`
+
+- 每个基类都要定义**虚析构函数**，否则派生类无法使用正确的析构函数
+
+- **protected**和友元：友元关系无法继承，每个负责控制各自成员的访问权限
+
+  ```c++
+  class Base {
+  protected:
+      int number;
+  };
+  
+  class Sneaky : public Base {
+    friend void Dot(Base& b);			// 无法访问Base中的protected成员
+    friend void Dot(Sneaky& s);		// 可以访问Sneaky中的protected成员
+  };
+  ```
+
+- 派生类的复制构造函数、复制运算符
+
+  ```c++
+  class Base {...};
+  class D : public Base {
+    D(const D& d) : Base(d) {...};
+    D(D&& d) : Base(std::move(d)) {...};  
+    D& operator=(const D& d) {
+        Base::operator=(d);
+        ...
+    };
+    D& operator=(D&& d) {
+        Base::operator=(std::move(d));
+        ...
+    }  
+  };
+  
+  
+  ```
+
+  
