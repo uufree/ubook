@@ -4,6 +4,69 @@
 
 [TOC]
 
+## 第2章 变量和基本类型
+
+- 如果想声明一个变量而非定义它，就在变量名前加**extern**关键字，而且不要显式的初始化变量，任何包含了显式初始化的声明即成为定义。**变量能且只能被定义一次，但是可以被多次声明**
+
+- **NULL**：`#define NULL ((void *)0)`；**nullptr**：可以被转化为任何类型的指针，并且解决调用二义性的问题：
+
+  ```c++
+  // NULL会导致二义性调用重载，因为NULL既可以被解释成*也可以被解释成0；nullptr只能被解释成指针
+  void bar(int a);		
+  void bar(void* a);
+  ```
+
+- **const**指针
+
+  ```c++
+  const int* num = 10;		// const修饰的是int，意味着指针指向的值不能被修改
+  int *const num = 10;		// const修饰的是*，意味着指针指向的位置是不能修改的
+  ```
+
+- **常量表达式**是指值不会改变，并且在编译过程中就能得到计算结果的表达式。**constexpr**告诉编译器：请验证变量是否是一个常量表达式。
+
+- 定义类型别名的两种方式：
+
+  ```c++
+  typedef int Int;
+  using Int = int;
+  ```
+
+- 两种类型说明符：
+
+  - **auto**：`auto p = tst();`
+  - **decltype**：`decltype(tst()) p;`
+
+## 第3章 字符串、向量和数组
+
+- 针对C指针类型的标准库函数：**begin**，**end**
+
+  ```c++
+  for (auto p=begin(ia); p!=end(ia); ++p) {
+  	std::cout << *p << std::endl;
+  }
+  ```
+
+## 第4章 表达式
+
+- 显示类型转换
+  - **static_case**：类似于C语言的强制转换，不保证安全性
+  - **const_cast**：去除修饰变量的const属性
+  - **dynamic_cast**：在继承体系中之执行安全的向下转型。将父指针或者引用根据virtual table中RTTI信息，安全的转换为子类指针或者引用，转化失败返回NULL
+  - **reinterpret_cast**：运行任意类型的转换，指针->整数等等，不安全，欺骗编译器
+
+## 第6章 函数
+
+- **局部静态对象**：在程序的执行路径上第一次经过对象定义语句时初始化，直到程序终止才被销毁。
+- 函数类似于变量，可以**声明多次，定义一次**，并且可以使用**extern**进行修饰。如果一个函数不会被用到，那么它可以只有声明，没有定义。
+- 可变参数形参：`std::initizlizer_list<T>`
+- 编译提供的有用的宏：
+  - `__func__`
+  - `__FILE__`
+  - `__LINE__`
+  - `__TIME__`：存放文件编译时间的字符串面值
+  - `__DATE__`：存放文件编译日期的字符串面值
+
 ## 第7章 类
 
 - 定义在类内部的函数是**隐式的inline函数**
@@ -137,8 +200,6 @@
   int Sales::reader = 10;
   ```
 
-## 第12章 动态内存
-
 ## 第13章 拷贝控制
 
 - 如果一个类需要定义析构函数，可以肯定，它也需要定义拷贝构造函数和拷贝构造运算符
@@ -266,4 +327,43 @@
   
   ```
 
-  
+
+## 第16章 模板与泛型编程
+
+- 类模板与友元：如果一个类模板包含一个非模板友元，则友元可以访问所有的模板实例。如果友元自身是模板，类可以授权给所有友元模板实例，也可以只授权给特定实例。
+
+  ```c++
+  template<typename> class Base;
+  template<typename T> 
+  class Blob {
+  	firend class Base<T>;	//授权给所有的实例
+  	template<typename X> friend class base;		//授权给指定实例
+  }
+  ```
+
+- 模板默认实参：
+
+  ```c++
+  template<typename T, typename F = less<T>>
+  class Base {...};
+  ```
+
+- 显式模板实参
+
+  ```c++
+  // 必须显式指定T1的类型，无法通过T2和T3推断出T1的类型
+  template<typename T1, typename T2, typename T3>
+  T1 sum(T2, T3);
+  ```
+
+- 模板尾置返回类型
+
+  ```c++
+  template<typename T>
+  auto func(T t1, T t2) -> decltype(*t1) {
+  	return *t1;
+  }
+  ```
+
+- 完美转发：`std::forward<T>(t1)`
+
