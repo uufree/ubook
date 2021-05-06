@@ -365,5 +365,131 @@
   }
   ```
 
-- 完美转发：`std::forward<T>(t1)`
+- 可变参数模板：编译器会根据调用为函数实例化不同的版本
 
+  ```c++
+  // 可以使用sizeof获取可变参数数量
+  template<typename T, typename... Args>
+  void foo(const T& t, const Args& ...args) {
+      std::cout << sizeof...(Args) << std::endl;	// 类型参数的数目
+      std::cout << sizeof...(args) << std::endl;	// 函数参数的数目
+  }
+  
+  // 根据调用，可能实例化以下版本
+  void foo(const int& i, const double& d, const string& s);
+  void foo(const int& i, const double& d, const float& f);
+  ```
+
+- 处理可变参数模板的适用方法：
+
+  ```c++
+  // 处理第n个参数
+  template<typename T>
+  ostream& print(ostream& os, const T& t) {
+  	return os << t;
+  }
+  
+  // 负责处理1～(n-1)的参数
+  template<typename T, typename ...Args>
+  ostream& print(ostream& os, Args ...args) {
+      os << t;
+      return print(os, args...);
+  }
+  ```
+
+- 完美转发
+
+  ```c++
+  // 转发单个参数
+  template<typename T>
+  void func(T&& t) {...}
+  
+  template<typename T>
+  void wrap(T&& t) {
+  	func(std::forward<T>(t));
+  }
+  
+  // 转发多个参数
+  template<typename ...Args>
+  void func(Args&& ...args) {...}
+  
+  template<typename ...Args>
+  void wrap(Args&& ...args) {
+      func(std::forward<Args>(args)...);
+  }
+  ```
+
+## 第17章 标准库特殊设施
+
+- 正则表达式
+
+- 随机数
+
+- iostream操纵符号
+
+  | 符号            | 意义                                  |
+  | --------------- | ------------------------------------- |
+  | boolalpha       | 将true或者false输出为字符串           |
+  | showbase        | 对整形输出表示进制的前缀              |
+  | showpoint       | 对浮点数总是显示小数点                |
+  | showpos         | 对非负数显示+                         |
+  | uppercase       | 在16进制中打印0X，在科学计数法中打印E |
+  | hex             | 整数显示为16进制                      |
+  | oct             | 整数显示为8进制                       |
+  | fixed           | 浮点数显示为定点十进制                |
+  | scientific      | 浮点值显示为科学计数法                |
+  | hexfloat        | 浮点数格式显示为十六进制              |
+  | defaultfloat    | 重置浮点数格式为十进制                |
+  | unitbuf         | 每次输出操作后都刷新缓冲区            |
+  | flush           | 刷新缓冲区                            |
+  | ends            | 插入空字符，刷新缓冲区                |
+  | endl            | 插入换行，刷新缓冲区                  |
+  | setfill(ch)     | 用ch填充空白                          |
+  | setprecision(n) | 将浮点数精度设置为n                   |
+  | setw(w)         | 读写值的宽度为w个字符                 |
+  | setbase(b)      | 将整数输出b进制                       |
+
+## 第18章 用于大型程序的工具
+
+- 异常
+- 名称空间
+- 多重继承
+
+## 第19章 特殊工具和技术
+
+- **dynamic_cast**
+
+  - 指针类型转换失败时，返回空指针
+  - 引用类型转换失败是，抛出**bad_cast**异常
+
+- **typeid**运算符：运行时类型检查。且**typeid**返回**class type_info**
+
+  ```c++
+  if (typeid(*bp) == typeid(*dp)) {
+      ...
+  }
+  
+  if (typeid(*bp) == typeid(Device*)) {
+      ...
+  }
+  
+  typeid(*bp).name()	//返回一个c类型字符串
+  typeid(*bp) == typeid(*dp)	// 重载==运算符
+  typeid(*bp) ！= typeid(*dp)	// 重载!=运算符
+  ```
+
+- 位域
+
+  ```c++
+  class File {
+    public:
+      int mode: 2;			// mode占2位
+      int modified: 2;		// modified占2位
+      int prot_owner: 3;		// prot_owner占3位
+      int prot_group: 3;		// prot_group占3位
+  };
+  ```
+
+- **volatile**：直接通过硬件获取值，不访问缓存
+
+- **extern "C"**：防止编译时的出现名称重载，保证函数命名与符号表中的符号名称一致
