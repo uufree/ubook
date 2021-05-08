@@ -17,6 +17,8 @@
     - 链表
     - 栈
     - 队列
+  - 设计模式
+    - 掌握golang、c++的23种设计模式
 - Books：
   - 《Redis设计与实现》
   - 《Redis深度历险》
@@ -26,6 +28,8 @@
 - Code：
   - Redis
   - ffmpeg应用层
+- Project
+  - 使用sdl + ffmpeg实现视频播放器
 
 ## Partation 01
 
