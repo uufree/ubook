@@ -24,84 +24,6 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 ## Options
 
-### Stream Mapping
-
-```
-ffmpeg version ... Copyright (c) 2000-2012 the FFmpeg developers
-...
-Input #0, matroska,webm, from 'input.mkv':
-  Duration: 01:39:44.02, start: 0.000000, bitrate: 5793 kb/s
-    Stream #0:0(eng): Video: h264 (High), yuv420p, 1920x800, 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc (default)
-    Stream #0:1(ger): Audio: dts (DTS), 48000 Hz, 5.1(side), s16, 1536 kb/s (default)
-    Stream #0:2(eng): Audio: dts (DTS), 48000 Hz, 5.1(side), s16, 1536 kb/s
-    Stream #0:3(ger): Subtitle: text (default)
-
-```
-
-- 示例1：
-
-  ```
-  我们想要：
-  将视频流复制
-  将德语音频流编码为MP3（128kbps）和AAC（96kbps）（在输出中创建两个音频流）
-  将英语音频流删除
-  将字幕流复制
-  
-  ffmpeg -i input.mkv \
-      -map 0:0 -map 0:1 -map 0:1 -map 0:3 \
-      -c:v copy \
-      -c:a:0 libmp3lame -b:a:0 128k \
-      -c:a:1 libfaac -b:a:1 96k \
-      -c:s copy \
-      output.mkv
-  ```
-
-- 示例2：
-
-  ```
-  我们想要：
-  倒序排列输入流
-  
-  ffmpeg -i input.mkv -map 0:3 -map 0:2 -map 0:1 -map 0:0 -c copy output.mkv
-  ```
-
-- 示例3：
-
-  ```
-  我们想从同一个输入文件中仅提取音频流
-  
-  ffmpeg -i input.mkv -map 0:1 -map 0:2 -c copy output.mkv
-  ```
-
-- 示例4：
-
-  ```
-  可以使用"-map"命令来创建多路文件输出
-  
-  ffmpeg -i input.mkv -map 0:1 -map 0:2 audios_only.mkv -map 0:0 video_only.mkv
-  ```
-
-### Stream Options
-
-```cassandra
--command : stream_type : stream_index
-
-// 对container中的第2个audio stream应用ac3编码方式
--codec:a:1 ac3     
-// 对container中的audio stream设置128 kbits
--b:a 128k
-// 拷贝container中的所有stream   
--codec copy
-// 对container中的第2个stream设置线程数量为4    
--threads:1 4    
-```
-
-- stream type
-  - `v`: video
-  - `a`: audio
-  - `s`: subtitle 
-- stream index: 0~n
-
 ### Generic Options
 
 - -L: Show license.
@@ -228,6 +150,62 @@ Input #0, matroska,webm, from 'input.mkv':
 - -pre[:stream_specifier] preset_name (output,per-stream): Specify the preset for matching stream(s).
 
 ### Advanded Main Options
+
+- -map: Designate one or more input streams as a source for the output file. **Start with 0**
+
+  ```cassandra
+  ffmpeg version ... Copyright (c) 2000-2012 the FFmpeg developers
+  ...
+  Input #0, matroska,webm, from 'input.mkv':
+    Duration: 01:39:44.02, start: 0.000000, bitrate: 5793 kb/s
+      Stream #0:0(eng): Video: h264 (High), yuv420p, 1920x800, 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc (default)
+      Stream #0:1(ger): Audio: dts (DTS), 48000 Hz, 5.1(side), s16, 1536 kb/s (default)
+      Stream #0:2(eng): Audio: dts (DTS), 48000 Hz, 5.1(side), s16, 1536 kb/s
+      Stream #0:3(ger): Subtitle: text (default)
+      
+  sample 1: 将视频流复制; 将德语音频流编码为MP3（128kbps）和AAC（96kbps）（在输出中创建两个音频流）;将英语音频流删除;将字幕流复制
+  ffmpeg -i input.mkv \
+      -map 0:0 -map 0:1 -map 0:1 -map 0:3 \
+      -c:v copy \
+      -c:a:0 libmp3lame -b:a:0 128k \
+      -c:a:1 libfaac -b:a:1 96k \
+      -c:s copy \
+      output.mkv
+      
+  sample 2: 倒序排列输入流
+  ffmpeg -i input.mkv -map 0:3 -map 0:2 -map 0:1 -map 0:0 -c copy output.mkv
+  
+  sample 3: 我们想从同一个输入文件中仅提取音频流
+  ffmpeg -i input.mkv -map 0:1 -map 0:2 -c copy output.mkv
+  
+  sample 4: 可以使用"-map"命令来创建多路文件输出
+  ffmpeg -i input.mkv -map 0:1 -map 0:2 audios_only.mkv -map 0:0 video_only.mkv
+  
+  sample 5: 将两个视频中的stream拷贝到一个容器中
+  ffmpeg -i a.mov -i b.mov -c copy -map 0:2 -map 1:6 out.mov
+  ```
+
+- -benchmark (global): Show benchmarking information at the end of an encode.
+
+- -benchmark_all (global): Show benchmarking information during the encode
+
+- -timelimit duration: Exit after ffmpeg has been running for duration seconds in CPU user time.
+
+- -dump: Dump each input packet to stderr.
+
+- -re (input): Read input at native frame rate. ** It is useful for real-time output (e.g. live streaming).**
+
+- -vsync parameter: Video sync method.
+
+  - `passthrough`: 每一帧从解码器到编码器，时间戳保持不变
+  - `cfr`: 如果指定了输出帧率，输入帧会按照需要进行复制（如果输出帧率大于输入帧率）或丢弃（如果输出帧率小于输入帧率）
+  - `vfr`: 输入帧从解码器到编码器，时间戳保持不变；如果出现相同时间戳的帧，则丢弃之
+  - `drop`: 将所有帧的时间戳清空
+  - `auto`: 根据参数自动选择`cfr`或者`vfr`
+
+- 
+
+
 
 ### Video Options
 
