@@ -425,6 +425,60 @@ ffmpeg -colors
 ffmpeg -layouts
 ```
 
+## Codec Options
+
+- -b:[a|v] integer: Set bitrate in bits/s. Default value is 200K.
+
+- -flags flags: Set generic flags
+  - mv4: Use four motion vector by macroblock (mpeg4).
+  - qpel: Use 1/4 pel motion compensation.
+  - loop: Use loop filter.
+  - qscale: Use fixed qscale.
+  - pass1: Use internal 2pass ratecontrol in first pass mode.
+  - pass2: Use internal 2pass ratecontrol in second pass mode.
+  - gray: Only decode/encode grayscale.
+  - psnr: Set error[?] variables during encoding.
+  - truncated: Input bitstream might be randomly truncated.
+  - drop_changed: Don’t output frames whose parameters differ from first decoded frame in stream. Error AVERROR_INPUT_CHANGED is returned when a frame is dropped.
+  - ildct: Use interlaced DCT.
+  - low_delay: Force low delay.
+  - global_header: Place global headers in extradata instead of every keyframe.
+  - bitexact: Only write platform-, build- and time-independent data. (except (I)DCT). This ensures that file and data checksums are reproducible and match between platforms. Its primary use is for regression testing.
+  - aic: Apply H263 advanced intra coding / mpeg4 ac prediction.
+  - ilme: Apply interlaced motion estimation.
+  - cgop: Use closed gop.
+  - output_corrupt: Output even potentially corrupted frames.
+- -time_base rational number: Set codec time base.
+- -g integer: Set the group of picture (GOP) size. Default value is 12.
+- -frame_size integer: Set audio frame size
+- -frame_number integer: Set the frame number
+- -qcomp float : Set video quantizer scale compression. Range: [0, 1]
+- -qblur float: Set video quantizer scale blur
+- -qmin integer: Set min video quantizer scale. Range: [-1, 69]. Default=2
+- -qmax integer: Set max video quantizer scale. Range: [-1, 1024]. Default=31
+- -bf integer: Set max number of B frames between non-B-frames. **0 means that B-frames are disabled. If a value of -1 is used, it will choose an automatic value depending on the encoder.** Range: [-1, 16]. Default=0
+- -b_qfactor float: Set qp factor between P and B frames.
+- -b_qoffset float: Set QP offset between P and B frames.
+- -maxrate integer: Set max bitrate tolerance
+- -minrate integer: Set min bitrate tolerance
+- -bufsize integer: Set ratecontrol buffer size
+- -i_qfactor float: Set QP factor between P and I frames.
+- -i_qoffset float: Set QP offset between P and I frames.
+- -mbcmp integer: Set macroblock compare function
+- -ildctcmp integer: Set interlaced dct compare function
+- -precmp integer: Set pre motion estimation compare function
+- -threads integer: Set the number of threads to be used
+- -dc integer: Set intra_dc_precision.
+- -mblmin integer: Set min macroblock lagrange factor
+- -mblmax integer: Set max macroblock lagrange factor
+- -keyint_min integer: Set minimum interval between IDR-frames.
+- -slices integer: Number of slices, used in parallelized encoding.
+- -thread_type flags: Select which multithreading methods to use. Default value is ‘slice+frame’
+  - `frame`: Decode more than one frame at once
+  - `slice`: Decode more than one part of a single frame at once
+
+
+
 
 
 
