@@ -477,6 +477,283 @@ ffmpeg -layouts
   - `frame`: Decode more than one frame at once
   - `slice`: Decode more than one part of a single frame at once
 
+## Audio Encoders
+
+### aac
+
+https://www.ffmpeg.org/ffmpeg-all.html#aac
+
+### libmp3lame
+
+https://www.ffmpeg.org/ffmpeg-all.html#libmp3lame-1
+
+## Video Encoders
+
+### libvpx
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-libvpx
+
+### libx264, libx264rgb
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-libx264_002c-libx264rgb
+
+### libx265
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-libx265
+
+## Subtitle Encoders
+
+### dvdsub
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-dvdsub-1
+
+## Bitstream Filters
+
+The option `-bsfs` of the ff* tools will display the list of all the supported bitstream filters included in your build.
+
+```cassandra
+// show all bfs
+ffmpeg -bsfs
+
+// command template
+ffmpeg -i INPUT -c:v copy -bsf:v filter1[=opt1=str1:opt2=str2][,filter2] OUTPUT
+```
+
+- **aac_adtstoasc**
+
+  Convert MPEG-2/4 AAC ADTS to an MPEG-4 Audio Specific Configuration bitstream.
+
+  This filter creates an MPEG-4 AudioSpecificConfig from an MPEG-2/4 ADTS header and removes the ADTS header.
+
+  This filter is required for example when copying an AAC stream from a raw ADTS AAC or an MPEG-TS container to MP4A-LATM, to an FLV file, or to MOV/MP4 files and related formats such as 3GP or M4A. Please note that it is auto-inserted for MP4A-LATM and MOV/MP4 and related formats.
+
+- **av1_metadata**
+
+- **chomp**: Remove zero padding at the end of a packet.
+
+- **dca_core**: Extract the core from a DCA/DTS stream, dropping extensions such as DTS-HD.
+
+- **dump_extra**: Add extradata to the beginning of the filtered packets
+
+  - keyframe: add extradata to all key packets
+  - all: add extradata to all packets
+
+  ```cassandra
+  ffmpeg -i INPUT -map 0 -flags:v +global_header -c:v libx264 -bsf:v dump_extra out.ts
+  ```
+
+- **eac3_core**
+
+- **extract_extradata**: This bitstream filter detects the in-band headers and makes them available as extradata.
+
+- **filter_units**
+
+- **hapqa_extract**
+
+- **h264_metadata**: Modify metadata embedded in an H.264 stream.
+
+- **hevc_metadata**:  Modify metadata embedded in an H.265 stream.
+
+  - **aud**
+  - **sample_aspect_ratio**
+  - **overscan_appropriate_flag**
+  - **video_format**
+  - **video_full_range_flag**
+  - **colour_primaries**
+  - **transfer_characteristics**
+  - **matrix_coefficients**
+  - **chroma_sample_loc_type**
+  - **fixed_frame_rate_flag**
+  - **tick_rate**
+  - **crop_left**
+  - **crop_right**
+  - **crop_top**
+  - **crop_bottom**
+  - **sei_user_data**
+  - **delete_filler**
+  - **level**
+
+- **h264_mp4toannexb**
+
+- **hevc_metadata**
+
+  h264有两种封装格式，字节流AnnexB和AVCC格式
+
+  - **AnnexB格式**，用于实时播放，对应ts容器。AnnexB格式每个NALU都包含起始码，且通常会周期性的在关键帧之前重复SPS和PPS。所以解码器可以从视频流随机点开始进行解码，实时的流格式。
+  - **AVCC格式**，用于存储，对用mp4容器。AVCC格式不使用起始码作为NALU的分界，这种格式在每个NALU前都加上一个大端格式的前缀（1、2、4字节，代表NALU长度）。所以在解析AVCC格式的时候需要将指定的前缀字节数的值保存在一个头部对象中，这个都通常称为extradata或者sequence header。同时，SPS和PPS数据也需要保存在extradata或者叫’sequence header’中。
+
+  ```cassandra
+  // mp4转ts
+  ffmpeg -i INPUT.mp4 -codec copy -bsf:v h264_mp4toannexb OUTPUT.ts
+  ```
+
+- **h264_redundant_pps**
+
+- **imxdump**
+
+- **mjpeg2jpeg**: Convert MJPEG/AVI1 packets to full JPEG/JFIF packets.
+
+  ```cassandra
+  ffmpeg -i mjpeg-movie.avi -c:v copy -bsf:v mjpeg2jpeg frame_%d.jpg
+  ```
+
+- **mjpegadump**
+
+- **mov2textsub**: Extract a representable text file from MOV subtitles, stripping the metadata header from each subtitle packet.
+
+- **mp3decomp**
+
+- **mpeg2_metadata**: Modify metadata embedded in an MPEG-2 stream.
+
+- **mpeg4_unpack_bframes**: Unpack DivX-style packed B-frames.
+
+  ```cassandra
+  ffmpeg -i INPUT.avi -codec copy -bsf:v mpeg4_unpack_bframes OUTPUT.avi
+  ```
+
+- **noise**
+
+- **null**
+
+- **pcm_rechunk**
+
+- **prores_metadata**
+
+- **remove_extra**: Remove extradata from packets.
+
+  - freq
+    - `k`： Remove extradata from non-keyframes only
+    - `keyframe`: Remove extradata from keyframes only.
+    - `all`: Remove extradata from all frames.
+
+- **setts**
+
+- **text2movsub**
+
+- **trace_headers**
+
+- **truehd_core**
+
+- **vp9_metadata**: Modify metadata embedded in a VP9 stream.
+
+- **vp9_superframe**: Merge VP9 invisible (alt-ref) frames back into VP9 superframes. 
+
+- **vp9_superframe_split**: Split VP9 superframes into single frames.
+
+- **vp9_raw_reorder**: Given a VP9 stream with correct timestamps but possibly out of order, insert additional show-existing-frame packets to correct the ordering.
+
+## Format Options
+
+### Demuxer
+
+#### HLS
+
+HLS demuxer, Apple HTTP Live Streaming demuxer.
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-hls-1
+
+#### MP4
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-mov_002fmp4_002f3gp
+
+#### MPEG-TS
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-mpegts
+
+### Muxer
+
+#### AVI
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-avi-1
+
+#### FLV
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-flv
+
+#### HLS
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-hls-2
+
+#### MP4
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-mov_002c-mp4_002c-ismv
+
+#### MP3
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-mp3
+
+#### MPEG-TS
+
+https://www.ffmpeg.org/ffmpeg-all.html#toc-mpegts-1
+
+### Special 
+
+#### segment
+
+- -segment_format format: Override the inner container format, by default it is guessed by the filename extension.
+- -segment_list name: Generate also a listfile named name. If not specified no listfile is generated.
+- -segment_list_flags flags: Generate also a listfile named name. If not specified no listfile is generated.
+  - `cache`: Allow caching (only affects M3U8 list files)
+  - `live`: Allow live-friendly file generation
+- -segment_list_entry_prefix prefix: Prepend prefix to each entry. Useful to generate absolute paths. By default no prefix is applied.
+- -segment_list_type type: Select the listing format.
+  - `flat`: Generate a flat list for the created segments, one segment per line.
+  - `m3u8`: Generate an extended M3U8 file
+- -segment_time time: Set segment duration to time, the value must be a duration specification.
+- -segment_times times: Specify a list of split points
+- -segment_frames frames: Specify a list of split video frame numbers.
+- -segment_start_number number: Set the sequence number of the first segment.
+
+```cassandra
+ffmpeg -i in.mkv -codec hevc -flags +cgop -g 60 -map 0 -f segment -segment_list out.list out%03d.nut
+
+ffmpeg -i in.mkv -codec copy -map 0 -f segment -segment_list out.csv -segment_times 1,2,3,5,8,13,21 out%03d.nut
+
+ffmpeg -i in.mkv -codec copy -map 0 -f segment -segment_list out.csv -segment_frames 100,200,300,500,800 out%03d.nut
+```
+
+#### tee
+
+The tee muxer can be used to write the same data to several outputs, such as files or streams. 
+
+```cassandra
+ffmpeg -i ... -c:v libx264 -c:a mp2 -f tee -map 0:v -map 0:a "archive-20121107.mkv|[f=mpegts]udp://10.0.1.255:1234/"
+```
+
+## Protocols
+
+### ftp
+
+https://www.ffmpeg.org/ffmpeg-all.html#ftp
+
+### hls
+
+https://www.ffmpeg.org/ffmpeg-all.html#hls-3
+
+### http
+
+https://www.ffmpeg.org/ffmpeg-all.html#http
+
+### rtmp
+
+https://www.ffmpeg.org/ffmpeg-all.html#rtmp
+
+### rtp
+
+https://www.ffmpeg.org/ffmpeg-all.html#rtp
+
+### rtsp
+
+https://www.ffmpeg.org/ffmpeg-all.html#rtsp
+
+### tcp
+
+https://www.ffmpeg.org/ffmpeg-all.html#tcp
+
+### udp
+
+https://www.ffmpeg.org/ffmpeg-all.html#udp
+
 
 
 
