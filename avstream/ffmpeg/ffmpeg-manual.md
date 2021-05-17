@@ -6,12 +6,34 @@
 
 ```cassandra
 x264:
+git clone https://code.videolan.org/videolan/x264.git
+cd x264
 ./configure --includedir=/usr/local/include --libdir=/usr/local/lib --enable-shared
 make -j10 
 make install
 
+x265:
+hg clone http://hg.videolan.org/x265
+cd x265/build/linux
+./make-Makefiles.bash
+make -j10
+make install
+
+mp3:
+wget https://jaist.dl.sourceforge.net/project/lame/lame/3.99/lame-3.99.5.tar.gz
+tar -zxvf lame-3.99.5.tar.gz
+cd lame-3.99.5
+./configure --enable-shared
+make -j10
+make install
+
+vpx:
+
+av1:
+
+
 ffmpeg:
-./configure --enable-gpl --enable-shared --enable-libx264
+./configure --enable-gpl --enable-shared --enable-libx264 --enable-libx265 --enable-libmp3lame
 make -j10
 make install
 ```
@@ -24,7 +46,7 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 ## Options
 
-### Generic Options
+### Print Options
 
 - **-L**: Show license.
 - **-h**: Show help.  Possible values of arg are:
@@ -68,7 +90,11 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 ### Main Options
 
-- **-f fmt** (input/output): Force input or output file format.  so this option is not needed in most cases.
+- **-f fmt** (input/output): Force input or output file format.  so this option is not needed in most cases. see: `ffmpeg -formats`
+
+  ```cassandra
+  ffmpeg -i audio.mp4 -f mp4 test.mp4
+  ```
 
 - **-i url** (input): input file url
 
@@ -76,28 +102,18 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 - **-n** (global): Do not overwrite output files, and exit immediately if a specified output file already exists.
 
-- **-c codec**: Select an encoder (when used before an output file) or a decoder (when used before an input file) for one or more streams. codec is the name of a decoder/encoder or a special value copy (output only) to indicate that the stream is not to be re-encoded.
+- **-c codec**: Select an encoder (when used before an output file) or a decoder (when used before an input file) for one or more streams.  see: `ffmpeg -codecs`
 
   ```cassandra
   ffmpeg -i INPUT -c:v libx264 -c:a copy OUTPUT
   ffmpeg -i INPUT -c copy -c:v:1 libx264 -c:a:137 libvorbis OUTPUT
   ```
 
-- **-t duration** (input/output): 
+- **-t duration** (input/output): 指定截取时间段的长度
 
-  - When used as an input option (before `-i`), limit the duration of data read from the input file.
-  - When used as an output option (before an output url), stop writing the output after its duration reaches duration.
+- **-to position** (input/output): 指定截取终止时间点
 
-  ```
-  "55": 55 seconds
-  "0.2":  0.2 seconds
-  "200ms": 200 milliseconds, that’s 0.2s
-  "200000us": 200000 microseconds, that’s 0.2s
-  "12:03:45: 12 hours, 03 minutes and 45 seconds
-  "23.189":  23.189 seconds
-  ```
-
-- **-to position** (input/output): Stop writing the output or reading the input at position. position must be a time duration specification
+- **-ss position** (input/output): 指定截取起始位置。**Note that in most formats it is not possible to seek exactly, so `ffmpeg` will seek to the closest seek point before position**. 
 
   ```cassandra
   "55": 55 seconds
@@ -106,23 +122,18 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   "200000us": 200000 microseconds, that’s 0.2s
   "12:03:45: 12 hours, 03 minutes and 45 seconds
   "23.189":  23.189 seconds
+  
+  // 从第10s开始，截取20s的视频片段. 
+  ffmpeg -i 20200904-a.mp4 -ss 10 -t 20 -c:v copy -c:a copy -y cut.mp4
+  
+  // 从第10s开始，截取终止点为30s的视频片段
+  ffmpeg -i 20200904-a.mp4 -ss 10 -to 30 -c:v copy -c:a copy -y cut.mp4
+  
+  // 如果视频比较长，可以选择先定位，再解码（这样不太准，建议片段前后预留3s）
+  ffmpeg -ss 01:00:00 -i 20200904-a.mp4  -t 20 -c:v copy -c:a copy -y cut.mp4
   ```
 
 - **-fs limit_size** (output): Set the file size limit, expressed in bytes. No further chunk of bytes is written after the limit is exceeded. The size of the output file is slightly more than the requested file size.
-
-- **-ss position** (input/output): 
-
-  - When used as an input option (before `-i`), seeks in this input file to position. **Note that in most formats it is not possible to seek exactly, so `ffmpeg` will seek to the closest seek point before position**. When transcoding and -accurate_seek is enabled (the default), this extra segment between the seek point and position will be decoded and discarded. When doing stream copy or when -noaccurate_seek is used, it will be preserved.
-  - When used as an output option (before an output url), decodes but discards input until the timestamps reach position.
-
-  ```cassandra
-  "55": 55 seconds
-  "0.2":  0.2 seconds
-  "200ms": 200 milliseconds, that’s 0.2s
-  "200000us": 200000 microseconds, that’s 0.2s
-  "12:03:45: 12 hours, 03 minutes and 45 seconds
-  "23.189":  23.189 seconds
-  ```
 
 - **-itsoffset offset**: Set the input time offset.
 
@@ -754,9 +765,27 @@ https://www.ffmpeg.org/ffmpeg-all.html#tcp
 
 https://www.ffmpeg.org/ffmpeg-all.html#udp
 
+## Resampleer Options
 
+- -in_channel_count: Set the number of input channels.
+- -out_channel_count: Set the number of output channels.
+- -used_channel_count: Set the number of used input channels.
+- -in_sample_rate: Set the input sample rate.
+- -out_sample_rate: Set the output sample rate.
+- -in_sample_fmt: Specify the input sample format. 
+- -out_sample_fmt: Specify the output sample format.
+- -in_channel_layout: Set the input channel layout.
+- -out_channel_layout: Set the output channel layout.
+- -output_sample_bits: set number of used output sample bits for dithering.
 
+## Scaler Options
 
-
-
+- -srcw: Set source width.
+- -srch: Set source height.
+- -dstw: Set destination width.
+- -dsth: Set destination height.
+- -src_format: Set source pixel format 
+- -dst_format: Set destination pixel format
+- -src_range: If value is set to `1`, indicates source is full range. Default value is `0`, which indicates source is limited range.
+- -dst_range: If value is set to `1`, enable full range for destination. Default value is `0`, which enables limited range.
 
