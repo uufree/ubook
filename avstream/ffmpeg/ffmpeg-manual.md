@@ -133,11 +133,13 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   ffmpeg -ss 01:00:00 -i 20200904-a.mp4  -t 20 -c:v copy -c:a copy -y cut.mp4
   ```
 
-- **-fs limit_size** (output): Set the file size limit, expressed in bytes. No further chunk of bytes is written after the limit is exceeded. The size of the output file is slightly more than the requested file size.
+- **-fs limit_size**: set the limit file size in bytes（几乎不会使用）
 
-- **-itsoffset offset**: Set the input time offset.
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c copy -y -fs 1000 cut.mp4
+  ```
 
-- **-timestamp date** (output): Set the recording timestamp in the container.
+- **-timestamp date** (output): Set the recording timestamp in the container.（几乎不会使用）
 
   ```cassandra
   [(YYYY-MM-DD|YYYYMMDD)[T|t| ]]((HH:MM:SS[.m...]]])|(HHMMSS[.m...]]]))[Z]
@@ -146,24 +148,35 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 - **-metadata[:metadata_specifier] key=value** (output,per-metadata): Set a metadata key/value pair.
 
+  ```cassandra
+  ffmpeg -i in.avi -c copy -metadata title="my title" out.flv
   ```
-  ffmpeg -i in.avi -metadata title="my title" out.flv
-  ffmpeg -i INPUT -metadata:s:a:0 language=eng OUTPUT
-  ```
-
+  
 - **-frames[:stream_specifier] framecount** (output,per-stream)：Stop writing to the stream after framecount frames.
 
   - `a`：audio
   - `v`：video
+
+  ```cassandra
+  // 获取视频帧数
+  ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 cut.mp4
+  
+  // 截取指定帧数的视频
+  ffmpeg -i 20200904-a.mp4 -c copy -frames:v 1000 cut.mp4
+  ```
 
 - **-b [:stream_specifier] bitrate**：set bitrate
 
   - `a`：audio
   - `v`：video
 
-- **-filter[:stream_specifier] filtergraph** (output,per-stream): Create the filtergraph specified by filtergraph and use it to filter the stream.
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -c:a libmp3lame -c:s copy -b:v 500k  -b:a 80k -y convert.mp4
+  ```
 
-- **-pre[:stream_specifier] preset_name** (output,per-stream): Specify the preset for matching stream(s).
+- **-filter[:stream_specifier] filtergraph** (output,per-stream): Create the filtergraph specified by filtergraph and use it to filter the stream.（不会用）
+
+- **-pre[:stream_specifier] preset_name** (output,per-stream): Specify the preset for matching stream(s).（不会用）
 
 ### Advanded Main Options
 
