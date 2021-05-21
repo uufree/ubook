@@ -88,6 +88,11 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   - debug
   - trace
 
+### Live Streaming Options
+
+- **-re**: 以本地帧频读数据，主要用于模拟捕获设备。 **It is useful for real-time output (e.g. live streaming).**
+- **-thread_queue_size size**: This option sets the maximum number of queued packets when reading from the file or device. **With low latency / high rate live streams, packets may be discarded if they are not read in a timely manner**
+
 ### Main Options
 
 - **-f fmt** (input/output): Force input or output file format.  so this option is not needed in most cases. see: `ffmpeg -formats`
@@ -102,7 +107,7 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 - **-n** (global): Do not overwrite output files, and exit immediately if a specified output file already exists.
 
-- **-c codec**: Select an encoder (when used before an output file) or a decoder (when used before an input file) for one or more streams.  see: `ffmpeg -codecs`
+- **-c[:stream_specifier] codec**: 
 
   ```cassandra
   ffmpeg -i INPUT -c:v libx264 -c:a copy OUTPUT
@@ -125,7 +130,7 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   
   // 从第10s开始，截取20s的视频片段. 
   ffmpeg -i 20200904-a.mp4 -ss 10 -t 20 -c:v copy -c:a copy -y cut.mp4
-  
+  **-thread_queue_size size**: This option sets the maximum number of queued packets when reading from the file or device. **With low latency / high rate live streams, packets may be discarded if they are not read in a timely manner**
   // 从第10s开始，截取终止点为30s的视频片段
   ffmpeg -i 20200904-a.mp4 -ss 10 -to 30 -c:v copy -c:a copy -y cut.mp4
   
@@ -133,52 +138,27 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   ffmpeg -ss 01:00:00 -i 20200904-a.mp4  -t 20 -c:v copy -c:a copy -y cut.mp4
   ```
 
-- **-fs limit_size**: set the limit file size in bytes（几乎不会使用）
-
-  ```cassandra
-  ffmpeg -i 20200904-a.mp4 -c copy -y -fs 1000 cut.mp4
-  ```
-
-- **-timestamp date** (output): Set the recording timestamp in the container.（几乎不会使用）
-
-  ```cassandra
-  [(YYYY-MM-DD|YYYYMMDD)[T|t| ]]((HH:MM:SS[.m...]]])|(HHMMSS[.m...]]]))[Z]
-  now
-  ```
-
 - **-metadata[:metadata_specifier] key=value** (output,per-metadata): Set a metadata key/value pair.
 
   ```cassandra
   ffmpeg -i in.avi -c copy -metadata title="my title" out.flv
   ```
-  
-- **-frames[:stream_specifier] framecount** (output,per-stream)：Stop writing to the stream after framecount frames.
 
-  - `a`：audio
-  - `v`：video
+- **-frames[:stream_specifier] framecount** (output,per-stream)：Stop writing to the stream after framecount frames.
 
   ```cassandra
   // 获取视频帧数
   ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 cut.mp4
   
   // 截取指定帧数的视频
-  ffmpeg -i 20200904-a.mp4 -c copy -frames:v 1000 cut.mp4
+  ffmpeg -i 20200904-a.mp4 -c copy -frames:v 1000 -frames:a cut.mp4
   ```
 
 - **-b [:stream_specifier] bitrate**：set bitrate
 
-  - `a`：audio
-  - `v`：video
-
   ```cassandra
   ffmpeg -i 20200904-a.mp4 -c:v libx264 -c:a libmp3lame -c:s copy -b:v 500k  -b:a 80k -y convert.mp4
   ```
-
-- **-filter[:stream_specifier] filtergraph** (output,per-stream): Create the filtergraph specified by filtergraph and use it to filter the stream.（不会用）
-
-- **-pre[:stream_specifier] preset_name** (output,per-stream): Specify the preset for matching stream(s).（不会用）
-
-### Advanded Main Options
 
 - **-map**: Designate one or more input streams as a source for the output file. **Start with 0**
 
@@ -218,11 +198,28 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 - **-benchmark_all** (global): Show benchmarking information during the encode
 
-- **-timelimit duration**: Exit after ffmpeg has been running for duration seconds in CPU user time.
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c copy -benchmark -y cut.mp4
+  ffmpeg -i 20200904-a.mp4 -c copy -benchmark_all -y cut.mp4
+  ```
 
 - **-dump**: Dump each input packet to stderr.
 
-- **-re** (input): Read input at native frame rate. ** It is useful for real-time output (e.g. live streaming).**
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c copy -benchmark_all -dump -y cut.mp4 
+  
+  // output
+  stream #1:
+    keyframe=1
+    duration=0.023
+    dts=313.585  pts=313.585
+    size=365
+  stream #1:
+    keyframe=1
+    duration=0.023
+    dts=313.609  pts=313.609
+    size=364
+  ```
 
 - **-vsync paramete**r: Video sync method.
 
@@ -232,62 +229,128 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   - `drop`: 将所有帧的时间戳清空
   - `auto`: 根据参数自动选择`cfr`或者`vfr`
 
-- **-copytb mode**: Specify how to set the encoder timebase when stream copying. 
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -an -c copy -vsync cfr -y cut.mp4
+  ```
 
-  - 1: Use the demuxer timebase.
-  - 0: Use the decoder timebase.
-  - -1: Try to make the choice automatically
+- **-bsf[:stream_specifier] bitstream_filters**: Set bitstream filters for matching streams.
 
-- **-enc_time_base[:stream_specifier] timebase**: Set the encoder timebase. 
+  ```cassandra
+  // 去除码流中多余的pps和sps
+  ffmpeg -i h264.mp4 -c:v copy -bsf:v h264_mp4toannexb -an out.h264
+  
+  // 处理字幕流
+  ffmpeg -i file.mov -an -vn -bsf:s mov2textsub -c:s copy -f rawvideo sub.txt
+  ```
+
+- **-discard param**: 从流中丢弃特定的帧
+
+  - none:  不丢弃任何帧
+  - default: 不求任何帧
+  - noref: Discard all non-reference frames.(B)
+  - bidir: Discard all bidirectional(双向) frames.(P, B)
+  - nokey: Discard all frames excepts keyframes.(IDR, P,B)
+  - all: Discard all frames.
+
+- **-psnr**: Calculate PSNR of compressed frames.
+
+  ```cassandra
+  ffmpeg -i pass1.mp4 -an -c:v libx264 -y -psnr -f null -
+  ```
+
+- **-vstats**: Dump video coding statistics to vstats_HHMMSS.log.
+
+- **-vstats_file file**: Dump video coding statistics to file.
+
+  ```cassandra
+  ffmpeg -i pass1.mp4 -an -c:v libx264 -y -vstats cut.mp4
+  ```
+
+- **-qphist**: Show QP histogram
+
+  ```cassandra
+  ffmpeg -i pass1.mp4 -an -c:v libx264 -y -qphist cut.mp4
+  ```
+
+- **-copyinkf[:stream_specifier]** : When doing stream copy, copy also non-key frames found **at the beginning.**
+
+  ```cassandra
+  ffmpeg -i pass1.mp4 -c copy -copyinkf -y cut.mp4
+  ```
+  
+- **-max_muxing_queue_size packets**: 从container中读取video packet，在读到第一个video packet前的packet queue size。默认值足够高，一般无需设置
+
+- **（不会用）-filter_complex filtergraph**: Define a complex filtergraph
+
+- **（不会用）-filter_complex_threads nb_threads**: Defines how many threads are used to process a filter_complex graph.
+
+- **（不会用）-filter[:stream_specifier] filtergraph** (output,per-stream): Create the filtergraph specified by filtergraph and use it to filter the stream.
+
+- **（不会用）-pre[:stream_specifier] preset_name** (output,per-stream): Specify the preset for matching stream(s).
+
+- **（不常用）-timestamp date** (output): Set the recording timestamp in the container.
+
+  ```cassandra
+  [(YYYY-MM-DD|YYYYMMDD)[T|t| ]]((HH:MM:SS[.m...]]])|(HHMMSS[.m...]]]))[Z]
+  now
+  ```
+
+- **（不常用）-fs limit_size**: set the limit file size in bytes
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c copy -y -fs 1000 cut.mp4
+  ```
+
+- **（不常用）-enc_time_base[:stream_specifier] timebase**: Set the encoder timebase. 
 
   - 0: Assign a default value according to the media type
   - -1: Use the input stream timebase when possible.
   - 1～n: Use the provided number as the timebase    (e.g. 1:24, 1:48000)
 
-- **-bitexact**: Enable bitexact mode for (de)muxer and (de/en)coder
+- **（不常用）-bitexact**: Enable bitexact mode for (de)muxer and (de/en)coder
 
-- **-shortest**: Finish encoding when the shortest input stream ends.
+- **（不常用）-shortest**: Finish encoding when the shortest input stream ends.
 
-- **-bsf[:stream_specifier] bitstream_filters**: Set bitstream filters for matching streams.
+- **（不常用）-copytb mode**: Specify how to set the encoder timebase when stream copying. 
 
-  ```cassandra
-  ffmpeg -i h264.mp4 -c:v copy -bsf:v h264_mp4toannexb -an out.h264
-  ffmpeg -i file.mov -an -vn -bsf:s mov2textsub -c:s copy -f rawvideo sub.txt
-  ```
+  - 1: Use the demuxer timebase.
+  - 0: Use the decoder timebase.
+  - -1: Try to make the choice automatically
 
-- **-filter_complex filtergraph**: Define a complex filtergraph
-
-- **-filter_complex_threads nb_threads**: Defines how many threads are used to process a filter_complex graph.
-
-- **-thread_queue_size size**: This option sets the maximum number of queued packets when reading from the file or device. **With low latency / high rate live streams, packets may be discarded if they are not read in a timely manner**
-
-- **-discard param**: Allows discarding specific streams or frames from streams.
-
-  - none:  Discard no frame.
-  - default: which discards no frames.
-  - noref: Discard all non-reference frames.(B)
-  - bidir: Discard all bidirectional（双向） frames.
-  - nokey: Discard all frames excepts keyframes.
-  - all: Discard all frames.
-
-- **-max_muxing_queue_size packets**: 从container中读取video packet，在读到第一个video packet前的packet queue size。默认值足够高，一般
+- **（不常用）-timelimit duration**: Exit after ffmpeg has been running for duration seconds in CPU user time.
 
 ### Video Options
 
-- -r[:stream_specifier] fps: Set frame rate
+- **-r[:stream_specifier] fps**: Set frame rate
 
-- -s[:stream_specifier] size: Set frame size. The format is ‘WxH’
+  ```cassandra
+  // 设置帧率
+  ffmpeg -i 20200904-a.mp4 -c libx264 -an -r 10 -y cut.mp4
+  
+  // 设置视频和音频的帧率
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -c:a aac -r:v 10 -r:a 38 -y cut.mp4
+  ```
 
-- -aspect[:stream_specifier] aspect: 设置视频的宽高比. (eg. "4:3", "16:9")
+- **-s[:stream_specifier] size**: Set frame size. The format is ‘WxH’
 
-- -vn: 过滤掉container中的视频
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -s 500x500 -y cut.mp4
+  ```
+
+- **-aspect[:stream_specifier] aspect**: 设置视频的宽高比. (eg. "4:3", "16:9")
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -s 500x500 -aspect:v 4:3 -y cut.mp4
+  ```
+
+- **-vn**: 过滤掉container中的视频
 
   ```cassandra
   // mp4 -> mp3
   ffmpeg -i input.mp4 -vn output.mp3
   ```
 
-- -pass[:stream_specifier] n
+- **-pass[:stream_specifier] n**
 
   二次编码。第一次是检测、收集亮度、运动等的相关数据，这样在二次编码的时候就会针对不同的场景来进行动态的压缩编码。
 
@@ -295,73 +358,59 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   - 二次编码VBR：比一次编码质量要好一些的。但是编码时间也会增加不少。使用二次编码可以把变化不大的画面转换时码率低一些（如静态画面），而变化大的码率高一些（如打斗动作部分），这样码率是变化的，可以使整部影片的清晰度比较均匀。
 
   ```cassandra
-  // 执行第一次编码，在ffmpeg所在目录会生成ffmpeg2pass-0.log和ffmpeg2pass-0.log.mbtree这两个文件
-  ffmpeg -i src.mov -c:v libx264 -preset slow -b:v 2420k -pass 1 -an -f mp4 -y NULL
+  // 执行第一次编码，会在当前目录会生成ffmpeg2pass-0.log和ffmpeg2pass-0.log.mbtree这两个文件
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -c:a copy -c:s copy -b:v 2420k -pass 1 -y pass1.mp4
   
   // 执行第二次编码
-  ffmpeg -i src.mov -c:v libx264 -preset slow -b:v 2420k -pass 2 -c:a copy dest6.mp4
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -c:a copy -c:s copy -b:v 2420k -pass 2 -y pass2.mp4
+  
+  // 还可以执行第三次编码，不清楚这一次的优化点是啥
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -c:a copy -c:s copy -b:v 2420k -pass 3 -y pass3.mp4
   ```
 
-- -passlogfile[:stream_specifier] prefix： Set two-pass log file name prefix
+- **-pix_fmt[:stream_specifier] format**: Set pixel format. see: `ffmpeg -pix_fmts`
 
-- -vf filtergraph: Create the filtergraph specified by filtergraph and use it to filter the stream.
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -c:a copy -pix_fmt:v yuv444p -y cut.mp4
+  ```
 
-- -autorotate: Automatically rotate the video according to file metadata
+- **（不会用）-vf filtergraph**: Create the filtergraph specified by filtergraph and use it to filter the stream.
 
-- -autoscale: Automatically scale the video according to the resolution of first frame.
+- **（不会用）-autorotate**: Automatically rotate the video according to file metadata
 
-- -pix_fmt[:stream_specifier] format: Set pixel format.
-- -sws_flags flags: Set SwScaler flags.
-- -ilme: Force interlacing support in encoder(隔行扫描) (MPEG-2 and MPEG-4 only)
-- -psnr: Calculate PSNR of compressed frames.
-- -vstats: Dump video coding statistics to vstats_HHMMSS.log.
-- -vstats_file file: Dump video coding statistics to file.
-- -qphist: Show QP histogram
-- -copyinkf[:stream_specifier] : When doing stream copy, copy also non-key frames found at the beginning.
+- **（不会用）-autoscale**: Automatically scale the video according to the resolution of first frame.
+
+- **（不会用）-sws_flags flags**: Set SwScaler flags.
 
 ### Audio Options
 
-- -aframes number: Set the number of audio frames to output.  **This is an obsolete alias for -frames:a**
+- **-ar freq**: Set the audio sampling frequency
 
-- -ar freq: Set the audio sampling frequency
-- -aq q: Set the audio quality. **This is an alias for -q:a.**
-- -ac channels: Set the number of audio channels.
-- -an: 
-  - As an input option, blocks all audio streams of a file from being filtered or being automatically selected or mapped for any output.
-  - As an output option, disables audio recording i.e. automatic selection or mapping of any audio stream.
-- -acodec codec: Set the audio codec. **This is an alias for -codec:a.**
-- -sample_fmt sample_fmt: Set the audio sample format. **Use -sample_fmts to get a list of supported sample formats.**
-- -af filtergraph: Create the filtergraph specified by filtergraph and use it to filter the stream. **This is an alias for -filter:a**
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v copy -c:a aac -ar 22050 -y cut.mp4
+  ```
+
+- **-ac channels**: Set the number of audio channels.
+
+  ```cassandra
+  // 将双声道音频（L+R）转为3声道音频（L+R+C）
+  ffmpeg -i 20200904-a.mp4 -c:v copy -c:a aac -ac 3 -y cut.mp4
+  ```
+
+- **-an**: 去除容器中的音频流
+
+- **-sample_fmt sample_fmt**: Set the audio sample format. see: `ffmpeg -sample_fmts`
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v copy -c:a aac -sample_fmt fltp -y cut.mp4
+  ```
+
+- （**不会用）-af filtergraph**: Create the filtergraph specified by filtergraph and use it to filter the stream. **This is an alias for -filter:a**
 
 ### Subtitle Options
 
-- -scodec codec: Set the subtitle codec. **This is an alias for -codec:s.**
-- -sn:
-  - As an input option, blocks all subtitle streams of a file from being filtered or being automatically selected or mapped for any output.
-  - As an output option, disables subtitle recording i.e. automatic selection or mapping of any subtitle stream.
-- -canvas_size size: Set the size of the canvas used to render subtitles.
-
-## Samples Of Format Conversion
-
-```cassandra
-// You can use YUV files as input
-ffmpeg -i /tmp/test%d.Y /tmp/out.mpg
-
-// You can input from a raw YUV420P file
-ffmpeg -i /tmp/test.yuv /tmp/out.avi
-
-// You can output to a raw YUV420P file
-ffmpeg -i mydivx.avi hugefile.yuv
-
-// You can set several input files and output files
-ffmpeg -i /tmp/a.wav -s 640x480 -i /tmp/a.yuv /tmp/a.mpg
-
-// You can also do audio and video conversions at the same time
-ffmpeg -i /tmp/a.wav -ar 22050 /tmp/a.mp2
-
-// Converts a.wav to a.mp2 at 64 kbits and to b.mp2 at 128 kbits
-ffmpeg -i /tmp/a.wav -map 0:a -b:a 64k /tmp/a.mp2 -map 0:a -b:a 128k /tmp/b.mp2
-```
+- **-sn**: 删除容器中的字幕流
+- **-canvas_size size**: Set the size of the canvas used to render subtitles.
 
 ## Syntax
 
@@ -379,125 +428,94 @@ ffmpeg -i /tmp/a.wav -map 0:a -b:a 64k /tmp/a.mp2 -map 0:a -b:a 128k /tmp/b.mp2
 - `12:03:45`: 12 hours, 03 minutes and 45 seconds
 - `23.189`: 23.189 seconds
 
-### Video Size
-
-```cassandra
-ntsc: 720x480
-pal: 720x576
-qntsc: 352x240
-qpal: 352x288
-sntsc: 640x480
-spal: 768x576
-film: 352x240
-ntsc-film: 352x240
-sqcif: 128x96
-qcif: 176x144
-cif: 352x288
-4cif: 704x576
-16cif: 1408x1152
-qqvga: 160x120
-qvga: 320x240
-vga: 640x480
-svga: 800x600
-xga: 1024x768
-uxga: 1600x1200
-qxga: 2048x1536
-sxga: 1280x1024
-qsxga: 2560x2048
-hsxga: 5120x4096
-wvga: 852x480
-wxga: 1366x768
-wsxga: 1600x1024
-wuxga: 1920x1200
-woxga: 2560x1600
-wqsxga: 3200x2048
-wquxga: 3840x2400
-whsxga: 6400x4096
-whuxga: 7680x4800
-cga: 320x200
-ega: 640x350
-hd480: 852x480
-hd720: 1280x720
-hd1080: 1920x1080
-2k: 2048x1080
-2kflat: 1998x1080
-2kscope: 2048x858
-4k: 4096x2160
-4kflat: 3996x2160
-4kscope: 4096x1716
-nhd: 640x360
-hqvga: 240x160
-wqvga: 400x240
-fwqvga: 432x240
-hvga: 480x320
-qhd: 960x540
-2kdci: 2048x1080
-4kdci: 4096x2160
-uhd2160: 3840x2160
-uhd4320: 7680x4320
-```
-
-### Color
-
-```cassandra
-ffmpeg -colors
-```
-
-### Channel Layout
-
-```cassandra
-ffmpeg -layouts
-```
-
 ## Codec Options
 
-- -b:[a|v] integer: Set bitrate in bits/s. Default value is 200K.
+- **-flags flags**: Set generic flags.  (猜测：使用的可能不是很频繁)
+  
+  - **mv4**: 每个宏块使用4个运动向量描述 (mpeg4).
+  - **qpel**: 使用1/4像素的运动补偿
+  - **loop**: 使用环路滤波
+  - **qscale**: Use fixed qscale.
+  - **pass1**: Use internal 2pass ratecontrol in first pass mode.
+  - **pass2**: Use internal 2pass ratecontrol in second pass mode.
+  - **gray**: Only decode/encode grayscale.
+  - **psnr**: Set error[?] variables during encoding.
+  - **truncated**: 输入的比特流可能被随机截断
+  - **drop_changed**: Don’t output frames whose parameters differ from first decoded frame in stream. Error AVERROR_INPUT_CHANGED is returned when a frame is dropped.
+  - **ildct**: 使用隔行DCT变换
+  - **low_delay**: 强制低延迟
+  - **global_header**: Place global headers in extradata instead of every keyframe.
+  - **bitexact**: Only write platform-, build- and time-independent data. (except (I)DCT). This ensures that file and data checksums are reproducible and match between platforms. Its primary use is for regression testing.
+  - **aic**: Apply H263 advanced intra coding / mpeg4 ac prediction.
+  - **ilme**: Apply interlaced motion estimation.
+  - **cgop**: Use closed gop.
+  - **output_corrupt**: Output even potentially corrupted frames.
+  
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -c:a copy -y -flags mv4 -flags qpel cut.mp4
+  ```
+  
+- **-g integer**: Set the group of picture (GOP) size. Default value is 12.
 
-- -flags flags: Set generic flags
-  - mv4: Use four motion vector by macroblock (mpeg4).
-  - qpel: Use 1/4 pel motion compensation.
-  - loop: Use loop filter.
-  - qscale: Use fixed qscale.
-  - pass1: Use internal 2pass ratecontrol in first pass mode.
-  - pass2: Use internal 2pass ratecontrol in second pass mode.
-  - gray: Only decode/encode grayscale.
-  - psnr: Set error[?] variables during encoding.
-  - truncated: Input bitstream might be randomly truncated.
-  - drop_changed: Don’t output frames whose parameters differ from first decoded frame in stream. Error AVERROR_INPUT_CHANGED is returned when a frame is dropped.
-  - ildct: Use interlaced DCT.
-  - low_delay: Force low delay.
-  - global_header: Place global headers in extradata instead of every keyframe.
-  - bitexact: Only write platform-, build- and time-independent data. (except (I)DCT). This ensures that file and data checksums are reproducible and match between platforms. Its primary use is for regression testing.
-  - aic: Apply H263 advanced intra coding / mpeg4 ac prediction.
-  - ilme: Apply interlaced motion estimation.
-  - cgop: Use closed gop.
-  - output_corrupt: Output even potentially corrupted frames.
-- -time_base rational number: Set codec time base.
-- -g integer: Set the group of picture (GOP) size. Default value is 12.
-- -frame_size integer: Set audio frame size
-- -frame_number integer: Set the frame number
-- -qcomp float : Set video quantizer scale compression. Range: [0, 1]
-- -qblur float: Set video quantizer scale blur
-- -qmin integer: Set min video quantizer scale. Range: [-1, 69]. Default=2
-- -qmax integer: Set max video quantizer scale. Range: [-1, 1024]. Default=31
-- -bf integer: Set max number of B frames between non-B-frames. **0 means that B-frames are disabled. If a value of -1 is used, it will choose an automatic value depending on the encoder.** Range: [-1, 16]. Default=0
-- -b_qfactor float: Set qp factor between P and B frames.
-- -b_qoffset float: Set QP offset between P and B frames.
-- -maxrate integer: Set max bitrate tolerance
-- -minrate integer: Set min bitrate tolerance
-- -bufsize integer: Set ratecontrol buffer size
-- -i_qfactor float: Set QP factor between P and I frames.
-- -i_qoffset float: Set QP offset between P and I frames.
-- -mbcmp integer: Set macroblock compare function
-- -ildctcmp integer: Set interlaced dct compare function
-- -precmp integer: Set pre motion estimation compare function
-- -threads integer: Set the number of threads to be used
-- -dc integer: Set intra_dc_precision.
-- -mblmin integer: Set min macroblock lagrange factor
-- -mblmax integer: Set max macroblock lagrange factor
-- -keyint_min integer: Set minimum interval between IDR-frames.
-- -slices integer: Number of slices, used in parallelized encoding.
-- -thread_type flags: Select which multithreading methods to use. Default value is ‘slice+frame’
+  ```cassandra
+  // 设置一个gop中帧的数量
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -c:a copy -g 8 -y cut.mp4
+  ```
+
+- **-qcomp float** : video quantizer scale compression (VBR).. Range: [0, 1]. Default: 0.5. 
+
+  ```cassandra
+  // qcomp越高，码率越大，效果质量越好
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -qcomp 1 -c:a copy  -y cut.mp4
+  ```
+
+- **-qblur float**: video quantizer scale blur (VBR). Range: [-1, FLOAT_MAX]. Default: 0.5
+
+- **-qmin integer**: minimum video quantizer scale (VBR). Range: [-1, 69]. Default=2
+
+- **-qmax integer**: maximum video quantizer scale (VBR). Range: [-1, 1024]. Default=31
+
+- **-bf integer**: Set max number of B frames between non-B-frames. **0 means that B-frames are disabled. If a value of -1 is used, it will choose an automatic value depending on the encoder.** Range: [-1, 16]. Default=0
+
+- **-b_qfactor float**: Set qp factor between P and B frames.
+
+- **-b_qoffset float**: Set QP offset between P and B frames.
+
+- **-maxrate integer**: Set max bitrate tolerance
+
+- **-minrate integer**: Set min bitrate tolerance
+
+- **-bufsize integer**: Set ratecontrol buffer size
+
+- **-i_qfactor float**: Set QP factor between P and I frames.
+
+- **-i_qoffset float**: Set QP offset between P and I frames.
+
+- **-mbcmp integer**: Set macroblock compare function
+
+- **-ildctcmp integer**: Set interlaced dct compare function
+
+- **-precmp integer**: Set pre motion estimation compare function
+
+- **-threads integer**: Set the number of threads to be used
+
+  ```cassandra
+  // 限制编解码过程中使用的线程数量
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -threads 4 -c:a copy  -y cut.mp4
+  ```
+
+- **-dc integer**: Set intra_dc_precision.
+
+- **-mblmin integer**: Set min macroblock lagrange factor
+
+- **-mblmax integer**: Set max macroblock lagrange factor
+
+- **-keyint_min integer**: Set minimum interval between IDR-frames.
+
+- **-slices integer**: Number of slices, used in parallelized encoding. 
+
+- **-thread_type flags**: Select which multithreading methods to use. Default value is ‘slice+frame’
+  
   - `frame`: Decode more than one frame at once
   - `slice`: Decode more than one part of a single frame at once
 
@@ -505,7 +523,40 @@ ffmpeg -layouts
 
 ### aac
 
-https://www.ffmpeg.org/ffmpeg-all.html#aac
+- **-aac_coder method**: Set AAC encoder coding method
+
+  - `twoloop`: Two loop searching (TLS) method. (质量高)
+  - `anmr`: Average noise to mask ratio (ANMR) trellis-based solution.(不推荐使用)
+  - `fast`: Constant quantizer method.  **This is the default choice for a coder**. 
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -vn -c:a aac -aac_coder twoloop -y cut.mp4
+  ffmpeg -i 20200904-a.mp4 -vn -c:a aac -aac_coder fast -y cut.mp4
+  ```
+
+- **-aac_ms**: Sets mid/side coding mode. Default: `auto`
+
+- **-aac_is**: Sets intensity stereo coding tool usage. Default: `enable`
+
+- **-aac_pns**: Uses perceptual noise substitution to replace low entropy high frequency bands with imperceptible white noise during the decoding process. Default: `enable`
+
+- **-aac_tns**: Enables the use of a multitap FIR filter which spans through the high frequency bands to hide quantization noise during the encoding process and is reverted by the decoder. Default: `enable`
+
+- **-aac_ltp**: Enables the use of the long term prediction extension which increases coding efficiency in very low bandwidth situations such as encoding of voice or solo piano music by extending constant harmonic peaks in bands throughout frames. 
+
+- **-aac_pred**: Enables the use of a more traditional style of prediction where the spectral coefficients transmitted are replaced by the difference of the current coefficients minus the previous "predicted" coefficients.
+
+- **-profile**: Sets the encoding profile
+
+  - `aac_low`: Default
+  - `mpeg2_aac_low`
+  - `aac_ltp`: Long term prediction profile
+  - `aac_main`: Main-type prediction profile
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -vn -c:a aac -profile aac_low -y cut.mp4
+  ffmpeg -i 20200904-a.mp4 -vn -c:a aac -profile aac_main -y cut.mp4
+  ```
 
 ### libmp3lame
 
