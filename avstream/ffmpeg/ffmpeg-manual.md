@@ -19,6 +19,11 @@ cd x265/build/linux
 make -j10
 make install
 
+vpx:
+sudo apt-get install libvpx-dev
+
+av1:
+
 mp3:
 wget https://jaist.dl.sourceforge.net/project/lame/lame/3.99/lame-3.99.5.tar.gz
 tar -zxvf lame-3.99.5.tar.gz
@@ -27,13 +32,10 @@ cd lame-3.99.5
 make -j10
 make install
 
-vpx:
-
-av1:
-
+aac:
 
 ffmpeg:
-./configure --enable-gpl --enable-shared --enable-libx264 --enable-libx265 --enable-libmp3lame
+./configure --enable-gpl --enable-shared --enable-libx264 --enable-libx265 --enable-libmp3lame --enable-libvpx
 make -j10
 make install
 ```
@@ -560,27 +562,297 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 ### libmp3lame
 
-https://www.ffmpeg.org/ffmpeg-all.html#libmp3lame-1
+- **-compression_level interger**: Set algorithm quality. Range: [0, 9]. 0意味着高质量但是编码速度慢；9意味着低质量但是编码速度快
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v copy -c:a libmp3lame -compression_level 0 -y cut.mp4
+  ```
+
+- **-cutoff**: Set lowpass cutoff frequency（设置低通截止频率）
 
 ## Video Encoders
 
 ### libvpx
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-libvpx
+- **-bufsize interger**: Set ratecontrol buffer size. `buf-sz = bufsize * 1000 / bitrate`, `buf-optimal-sz = bufsize * 1000 / bitrate * 5 / 6`
 
-### libx264, libx264rgb
+- **-rc_init_occupancy interger**: 解码开始前必须加载到rc缓冲区中的比特数量
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-libx264_002c-libx264rgb
+- **-undershoot-pct interger** : 设置目标比特率的Datarate undershoot（min）百分比
+
+- **-overshoot-pct interger**: 设置目标比特率的Datarate undershoot（max）百分比
+
+- **-maxrate interger**: Set GOP max bitrate in bits/s
+
+- **-minrate interger**: Set GOP min bitrate in bits/s
+
+- **-crf interger**: 质量优先，控制码率。Range: [-1, 63]，0表示无损。越小码率越高
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v vp9 -crf 0 -c:a copy -y -threads 10 cut.mp4
+  ```
+
+- **-tune string**
+
+  - `psnr`: 禁止弹性量化模式，禁止物理视觉优化。弹性量化模式可以更好的优化视觉效果
+  - `ssim`：启动弹性量化模式，禁止物理视觉优化
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v vp9  -tune psnr -c:a copy -y -threads 10 cut.mp4
+  ffmpeg -i 20200904-a.mp4 -c:v vp9  -tune ssim -c:a copy -y -threads 10 cut.mp4
+  ```
+
+- **-quality**: 
+  - `best`: 最好
+  - `good`：次之 
+  - `realtime`：最差
+- **-max-intra-rate int**: 设置I帧最大的码率占总码率的百分比
+- **-error-resilient**: 启动错误弹性功能
+- **-sharpness integer**: 以较低的PSNR提高锐度。Range: [0, 7]
+- **（不会用）-ts-parameters**:
+  - **ts_number_layers**
+  - **ts_target_bitrate**
+  - **ts_rate_decimator**
+  - **ts_periodicity**
+  - **ts_layer_id**
+  - **ts_layering_mode**
+- VP9 Only:
+  - **-lossless**: 启用无损模式
+  - **-tile-columns integer**: Set number of tile columns to use
+  - **-tile-rows integer**: Set number of tile rows to use
+  - **-frame-parallel integer**: 启用并行解码
+  - **-aq-mode integer**: 设置自适应量化模式
+    - 0（default）：Off
+    - 1：variance
+    - 2：complexity
+    - 3：cyclic refresh
+    - 4：equator360
+  - **-colorspace color-space**: Set input color space
+    - **rgb**
+    - **bt709**
+    - **unspecified**
+    - **bt470bg**
+    - **smpte170m**
+    - **smpte240m**
+    - **bt2020_ncl**
+  - **-row-mt bool**: 启用基于行的多线程
+  - **-enable-tpl bool**: 启用时间依赖模型
+
+### libx264
+
+- **-qmin integer**: 设置最小的QP值. Range: [-1, 69]
+
+- **-qmax integer**: 设置最大的QP值. Range: [-1, 69]
+
+- **-qdiff integer**: 设置量化步数
+
+- **-qblur integer**: 量化曲线模糊度 (after curve compression)
+
+- **-qcomp integer**: 量化曲线压缩因子
+
+- **-refs integer**: P帧可以使用的参考帧数量。Range: [0, 16]
+
+- **-sc_threshold integer**: 设置场景检测的变更阈值（插入I帧或者IDR帧）
+
+- **-trellis integer**: 网格RD量化
+
+  - 0：disabled
+  - 1：enabled only on the final encode of a MB
+  - 2：enabled on all mode decisions
+
+- **-nr integer**: 降噪设置
+
+- **-me_range integer**: 最大的运动矢量像素搜索范围
+
+- **-me_method**: 整数像素运动估计算法
+
+  - dia： diamond search, radius 1 (fast)（菱形搜索，半径为1）
+  - hex： hexagonal search, radius 2（六角形搜索，半径为2）
+  - umh：uneven multi-hexagon search（非均匀多六边形搜索）
+  - esa：exhaustive search（详尽搜索）
+  - tesa：hadamard exhaustive search (slow)（哈德玛详尽搜索）
+
+- **-forced-idr**: 通常，在强制I帧类型时，编码器可以选择任何类型的I帧。此选项强制它选择IDR帧。
+
+- **-subq integer**: 亚像素运动估计和模式选择
+
+  - 0：fullpel only (not recommended)
+  - 1：SAD mode decision, one qpel iteration
+  - 2：SATD mode decision
+  - 3-5：Progressively more qpel
+  - 6：RD mode decision for I/P-frames
+  - 7：RD mode decision for all frames
+  - 8：RD refinement for I/P-frames
+  - 9：RD refinement for all frames
+  - 10：QP-RD - requires trellis=2, aq-mode>0
+  - 11： Full RD: disable all early terminations
+
+- **-b_strategy integer**: 弹性B帧位置决策算法，控制x264如何放置B帧
+
+  - 0：Disable
+  - 1：Fast
+  - 2：Optimal (slow with high --bframes)
+
+- **-keyint_min integer**: 设置gop中最小的图片数量
+
+- **-coder**: 设置熵编码器
+
+  - `ac`：Enable CABAC
+  - `vlc`：Enable CAVLC and disable CABAC
+
+- **-cmp**: 设置整像素运动估计算法
+
+  - **chroma**: 在运动估计中启用色度
+  - **sad**: 在运动估计中忽略色度
+
+- **-rc_init_occupancy**: Initial VBV buffer occupancy
+
+- **-preset string**: 设置编码预设值，影响编码性能和编码速度：
+
+  - ultrafast 
+  - superfast
+  - veryfast
+  - faster
+  - fast
+  - medium
+  - slow
+  - slower
+  - veryslow
+  - placebo
+
+- **-tune string**: 视觉优化参数，根据视频类型选择编码参数
+
+  - film：电影类型，对视频的质量非常严格时使用该选项
+  - animation：动画片，压缩的视频是动画片时使用该选项
+  - grain：颗粒物很重，该选项适用于颗粒感很重的视频
+  - stillimage：静态图像，该选项主要用于静止画面比较多的视频
+  - psnr：提高psnr，该选项编码出来的视频psnr比较高
+  - ssim：提高ssim，该选项编码出来的视频ssim比较高
+  - fastdecode：快速解码，该选项有利于快速解码
+  - zerolatency：零延迟，该选项主要用于视频直播
+
+- **-profile string**
+
+  - baseline: 基本画质，常用于视频通话
+  - main：主要画质，常用于视频流媒体领域
+  - high：高质量画质，常用于广电领域
+  - high10
+  - high422
+  - high444
+
+- **-crf integer**：质量优先，控制码率。可选：0-51，0表示无损。越小码率越高
+
+- **-crf_max integer**：With CRF+VBV, limit RF to this value May cause VBV underflows
+
+- **-qp integer**：设置恒定码率量化参数。可选：0-81，0表示无损
+
+- **-aq-mode integer**: 弹性量化模式。没有AQ时，量化过程很容易分配不足的位数到细节较少的地方去，损失量化精度。AQ是为了更好的分配量化区间内的位数。
+
+  - 0：Disabled
+  - 1：Variance AQ (complexity mask)
+  - 2： Auto-variance AQ
+  - 3：Auto-variance AQ with bias to dark scenes
+
+- **-aq-strength float**: 弹性量化强度，减少平面区域和纹理区域的粘合。建议范围：0-2
+
+- **-psy integer**: 是否视觉效果优化。Range: [0, 1]
+
+- **-psy-rd float:float**: 视觉效果优化参数设置
+
+- **-rc-lookahead integer**: 设定mb-tree位元率控制和vbv-lookahead使用的帧数，范围0-250。
+
+- **-weightb integer**: 是否启用B帧的加权预测. Range: [0, 1]
+
+- **-weightp**: ：P帧加权预测
+
+  - 0：Disable
+  - 1：Weighted refs
+  - 2：Weighted refs + Duplicates
+
+- **-ssim**: 启用SSIM计算（质量相关，结构相似性）
+
+- **-psnr**: 启用PSNR计算（质量相关，峰值信号比）
+
+- **-intra-refresh**: 使用定期的帧内刷新，代替I帧
+
+- **-avcintra-class integer**: 对AVC-Intra类使用兼容性技巧，可选：[50, 100, 200]
+
+- **-bluray-compat**: 启用兼容性技巧以支持Blu-ray
+
+- **-b-bias integer**: 设置使用B帧的频率
+
+- **-b-pyramid string**: 是否保留一些B帧作为参考
+
+  - none：Disabled
+  - strict：Strictly hierarchical pyramid
+  - normal：Non-strict
+
+- **-8x8dct integer**: 是否启用自使用空间变换. Range: [0, 1]
+
+- **-mbtree integer**: 是否启用宏块树进行码率控制. Range: [0, 1]
+
+- **-deblock string:string**: 环路滤波参数, alpha:beta
+
+- **-cplxblur**: Reduce fluctuations in QP (before curve compression)
+
+- **-partitions string**: 控制I、P、B帧宏块划分，越小越有利于压缩。可选:
+
+  - p8x8, p4x4, b8x8, i8x8, i4x4, none, all （p4x4 requires p8x8. i8x8 requires --8x8dct）
+
+- **-direct-pred string**: 设置直接向量预测模式
+
+  - **none**
+  - **spatial**
+  - **temporal**
+  - **auto**
+
+- **-slice-max-size integer**: 每个条带最大的比特数
+
+- **-stats integer**: Set the file name for multi-pass stats
+
+- **-x264-params**: 使用x264的编码参数
+
+  ```cassandra
+  ffmpeg -i INPUT -c:v libx264 -x264-params level=30:bframes=0:weightp=0:\
+  cabac=0:ref=1:vbv-maxrate=768:vbv-bufsize=2000:analyse=all:me=umh:\
+  no-fast-pskip=1:subq=6:8x8dct=0:trellis=0 OUTPUT
+  ```
 
 ### libx265
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-libx265
+- **refs**: 详见libx264
 
-## Subtitle Encoders
+- **preset**: 详见libx264
 
-### dvdsub
+- **tune**: 详见libx264
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-dvdsub-1
+- **profile**: 详见libx264
+
+- **crf**: 详见libx264
+
+- **qp**: 详见libx264
+
+- **qmin**: 详见libx264
+
+- **qmax**: 详见libx264
+
+- **qdiff**: 详见libx264
+
+- **qblur**: 详见libx264
+
+- **qcomp**: 详见libx264
+
+- **i_qfactor**: 详见libx264
+
+- **b_qfactor**: 详见libx264
+
+- **forced-idr**: 详见libx264
+
+- **x265-params**：直接使用x265的命令行参数
+
+  ```cassandra
+  ffmpeg -i input -c:v libx265 -x265-params crf=26:psy-rd=1 output.mp4
+  ```
 
 ## Bitstream Filters
 
@@ -723,13 +995,19 @@ ffmpeg -i INPUT -c:v copy -bsf:v filter1[=opt1=str1:opt2=str2][,filter2] OUTPUT
 
 #### HLS
 
-HLS demuxer, Apple HTTP Live Streaming demuxer.
+HLS demuxer, Apple **HTTP Live Streaming** demuxer.
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-hls-1
+- **-live_start_index integer**：segment index to start live streams at (**negative values are from the end**).
+- **-allowed_extensions integer**：访问多个流的分隔符
+- **-max_reload integer**：出错时允许重新加载的次数，Default：1000
+- **-m3u8_hold_counters integer**：在没有new segments的情况下允许重新加载的次数，Default：1000
+- **-http_persistent integer**：使用持久性HTTP连接。仅适用于HTTP流。默认启用。
+- **-http_multiple integer**：使用多个HTTP连接下载HTTP段。默认情况下启用HTTP / 1.1服务器。
+- **-http_seekable integer**：使用HTTP部分请求下载HTTP段。 0 =禁用，1 =启用，-1 =自动，默认为auto
 
 #### MP4
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-mov_002fmp4_002f3gp
+
 
 #### MPEG-TS
 
