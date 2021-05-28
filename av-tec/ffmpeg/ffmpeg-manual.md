@@ -1007,37 +1007,50 @@ HLS demuxer, Apple **HTTP Live Streaming** demuxer.
 
 #### MP4
 
-
+- **-enable_drefs integer**: 默认情况下禁用外部轨道的加载
+- **-use_absolute_path integer**: 允许通过绝对路径加载外部轨道，默认禁用。
+- **-seek_streams_individually integer**: seeking时，单独识别每个流中的最接近点，并在该流中从已识别的点中的解码分组。默认启用
+- **-ignore_editlist integer**：忽略任何编辑列表原子。默认禁用
+- **-advanced_editlist integer**：修改流索引以反映编辑列表描述的时间轴。默认启用
+- **-use_mfra_for string**：For seekable fragmented input, set fragment’s starting timestamp from media fragment random access box, if present.
+  - **auto**：Auto-detect whether to set mfra timestamps as PTS or DTS
+  - **dts**：Set mfra timestamps as DTS
+  - **pts**：Set mfra timestamps as PTS
+  - **0**：Don’t use mfra box to set timestamps
+- **-export_all integer**：将UDTA框中的未识别框导出为元数据条目。默认禁用
 
 #### MPEG-TS
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-mpegts
+- **-resync_size integer**：重新同步时的需要获取的字节数目。默认是65536
+- **-skip_unknown_pmt integer**：跳过PAT中未定义的PMTs。默认禁用
+- **-fix_teletext_pts integer**：是否丢弃无效的Telext数据包PTS和DTS值，默认不丢弃
+- **-scan_all_pmts integer**：扫描并结合所有PMT。该值是具有从-1到1的值的整数（-1表示自动设置，1表示启用，0表示禁用）。默认值为-1。
 
 ### Muxer
 
 #### AVI
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-avi-1
+https://www.ffmpeg.org/ffmpeg-all.html#avi-1
 
 #### FLV
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-flv
+https://www.ffmpeg.org/ffmpeg-all.html#flv
 
-#### HLS
+#### HLS(m3u8)
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-hls-2
+https://www.ffmpeg.org/ffmpeg-all.html#hls-2
 
 #### MP4
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-mov_002c-mp4_002c-ismv
+https://www.ffmpeg.org/ffmpeg-all.html#mov_002c-mp4_002c-ismv
 
 #### MP3
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-mp3
+https://www.ffmpeg.org/ffmpeg-all.html#mp3
 
 #### MPEG-TS
 
-https://www.ffmpeg.org/ffmpeg-all.html#toc-mpegts-1
+https://www.ffmpeg.org/ffmpeg-all.html#mpegts-1
 
 ### Special 
 
@@ -1075,10 +1088,6 @@ ffmpeg -i ... -c:v libx264 -c:a mp2 -f tee -map 0:v -map 0:a "archive-20121107.m
 
 ## Protocols
 
-### ftp
-
-https://www.ffmpeg.org/ffmpeg-all.html#ftp
-
 ### hls
 
 https://www.ffmpeg.org/ffmpeg-all.html#hls-3
@@ -1098,14 +1107,6 @@ https://www.ffmpeg.org/ffmpeg-all.html#rtp
 ### rtsp
 
 https://www.ffmpeg.org/ffmpeg-all.html#rtsp
-
-### tcp
-
-https://www.ffmpeg.org/ffmpeg-all.html#tcp
-
-### udp
-
-https://www.ffmpeg.org/ffmpeg-all.html#udp
 
 ## Resampleer Options
 
