@@ -1030,23 +1030,104 @@ HLS demuxer, Apple **HTTP Live Streaming** demuxer.
 
 #### AVI
 
-https://www.ffmpeg.org/ffmpeg-all.html#avi-1
+- **-reserve_index_space int**：在文件的header中为每个流预留一些空间
+- **-write_channel_mask int**：将channel layout写入音频流的header中
 
 #### FLV
 
-https://www.ffmpeg.org/ffmpeg-all.html#flv
+- **-flvflags flags**：
+  - **aac_seq_header_detect**：将AAC header信息放置在audio stream中
+  - **no_sequence_end**：Disable sequence end tag.
+  - **no_metadata**：Disable metadata tag.
+  - **no_duration_filesize**：Disable duration and filesize in metadata when they are equal to zero at the end of stream
+  - **add_keyframe_index**：用于更方便的seek操作，在header中增加keyframe的index信息
 
 #### HLS(m3u8)
 
-https://www.ffmpeg.org/ffmpeg-all.html#hls-2
+- **-hls_time int**：设置hls中ts段的长度
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -hls_time 30 -c:a copy cut.m3u8
+  ```
+
+- **-hls_list_size int**：设置m3u8文件中的entry size，默认5条
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -hls_list_size 5 -c:a copy cut.m3u8
+  ```
+
+- **-hls_ts_options option_list**：Set output format options using a :-separated list of key=value parameters. Values containing `:` special characters must be escaped.
+
+- **-start_number number**：生成的ts的起始序号，默认是0。
+
+  ```cassandra
+  // 原先的index number range：0-100
+  // 加入start number之后的range：10-110
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -start_number 10 -c:a copy cut.m3u8
+  ```
+
+- **- hls_allow_cache int**：显示设置客户端是否可以缓存segments。会在m3u8文件中增加行：**#EXT-X-ALLOW-CACHE:YES**
+
+  ````cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -hls_time 30 -hls_allow_cache 1 -c:a copy cut.m3u8
+  ````
+
+- **-hls_base_url string**：在m3u8文件中设置生成ts文件的path
+
+  ```cassandra
+  ffmpeg -i 20200904-a.mp4 -c:v libx264 -hls_time 30 -hls_allow_cache 1 -hls_base_url /home/sensetime/ -c:a copy cut.m3u8
+  ```
+
+- **-hls_segment_filename string**：设置ts segment的名称
+
+  ```cassandra
+  ffmpeg -i in.nut -hls_segment_filename 'file%03d.ts' out.m3u8
+  ```
+
+- **-strftime int**：修饰生成的ts segment的名称
+
+  ```
+  ffmpeg -i in.nut -strftime 1 -hls_segment_filename 'file-%Y%m%d-%s.ts' out.m3u8
+  ```
+
+- **-strftime_mkdir int**：修饰生成的ts segment的名称
+
+  ```cassandra
+  ffmpeg -i in.nut -strftime 1 -strftime_mkdir 1 -hls_segment_filename '%Y%m%d/file-%Y%m%d-%s.ts' out.m3u8
+  ```
+
+- **-hls_segment_type flags**：设置生成的segment的类型
+
+  - **mpegts**：默认选项
+  - **fmp4**：客户端需要支持HLS 7以上
+
+- **-hls_flags flags**
+
+  - **single_file**：全局仅生成一个ts文件
+
+    ```cassandra
+    ffmpeg -i in.nut -hls_flags single_file out.m3u8
+    ```
+
+- **-method string**：使用http method创建m3u8文件
+
+  ```cassandra
+  ffmpeg -re -i in.ts -f hls -method PUT http://example.com/live/out.m3u8
+  ```
+
+- **-master_pl_name string**：Create HLS master playlist with the given name.
+
+  ```cassandra
+  ffmpeg -re -i in.ts -f hls -master_pl_name master.m3u8 http://example.com/live/out.m3u8
+  ```
+
+- **-http_persistent int**：使用持久化的http链接
+
+- **-timeout int**：设置超时时间
 
 #### MP4
 
 https://www.ffmpeg.org/ffmpeg-all.html#mov_002c-mp4_002c-ismv
-
-#### MP3
-
-https://www.ffmpeg.org/ffmpeg-all.html#mp3
 
 #### MPEG-TS
 
@@ -1056,19 +1137,19 @@ https://www.ffmpeg.org/ffmpeg-all.html#mpegts-1
 
 #### segment
 
-- -segment_format format: Override the inner container format, by default it is guessed by the filename extension.
-- -segment_list name: Generate also a listfile named name. If not specified no listfile is generated.
-- -segment_list_flags flags: Generate also a listfile named name. If not specified no listfile is generated.
+- **-segment_format format**: Override the inner container format, by default it is guessed by the filename extension.
+- **-segment_list name**: Generate also a listfile named name. If not specified no listfile is generated.
+- **-segment_list_flags flags**: Generate also a listfile named name. If not specified no listfile is generated.
   - `cache`: Allow caching (only affects M3U8 list files)
   - `live`: Allow live-friendly file generation
-- -segment_list_entry_prefix prefix: Prepend prefix to each entry. Useful to generate absolute paths. By default no prefix is applied.
-- -segment_list_type type: Select the listing format.
+- **-segment_list_entry_prefix prefix**: Prepend prefix to each entry. Useful to generate absolute paths. By default no prefix is applied.
+- **-segment_list_type type**: Select the listing format.
   - `flat`: Generate a flat list for the created segments, one segment per line.
   - `m3u8`: Generate an extended M3U8 file
-- -segment_time time: Set segment duration to time, the value must be a duration specification.
-- -segment_times times: Specify a list of split points
-- -segment_frames frames: Specify a list of split video frame numbers.
-- -segment_start_number number: Set the sequence number of the first segment.
+- **-segment_time time**: Set segment duration to time, the value must be a duration specification.
+- **-segment_times times**: Specify a list of split points
+- **-segment_frames frames**: Specify a list of split video frame numbers.
+- **-segment_start_number number**: Set the sequence number of the first segment.
 
 ```cassandra
 ffmpeg -i in.mkv -codec hevc -flags +cgop -g 60 -map 0 -f segment -segment_list out.list out%03d.nut
@@ -1090,11 +1171,13 @@ ffmpeg -i ... -c:v libx264 -c:a mp2 -f tee -map 0:v -map 0:a "archive-20121107.m
 
 ### hls
 
-https://www.ffmpeg.org/ffmpeg-all.html#hls-3
+参见Format章节的**HLS**
 
 ### http
 
-https://www.ffmpeg.org/ffmpeg-all.html#http
+- 
+
+
 
 ### rtmp
 
