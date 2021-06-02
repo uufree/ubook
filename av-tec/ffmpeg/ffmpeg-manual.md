@@ -1175,9 +1175,7 @@ ffmpeg -i ... -c:v libx264 -c:a mp2 -f tee -map 0:v -map 0:a "archive-20121107.m
 
 ### http
 
-- 
-
-
+https://www.ffmpeg.org/ffmpeg-all.html#http
 
 ### rtmp
 
@@ -1193,25 +1191,25 @@ https://www.ffmpeg.org/ffmpeg-all.html#rtsp
 
 ## Resampleer Options
 
-- -in_channel_count: Set the number of input channels.
-- -out_channel_count: Set the number of output channels.
-- -used_channel_count: Set the number of used input channels.
-- -in_sample_rate: Set the input sample rate.
-- -out_sample_rate: Set the output sample rate.
-- -in_sample_fmt: Specify the input sample format. 
-- -out_sample_fmt: Specify the output sample format.
-- -in_channel_layout: Set the input channel layout.
-- -out_channel_layout: Set the output channel layout.
-- -output_sample_bits: set number of used output sample bits for dithering.
+- **-in_channel_count**: Set the number of input channels.
+- **-out_channel_count**: Set the number of output channels.
+- **-used_channel_count**: Set the number of used input channels.
+- **-in_sample_rate**: Set the input sample rate.
+- **-out_sample_rate**: Set the output sample rate.
+- **-in_sample_fmt**: Specify the input sample format. 
+- **-out_sample_fmt**: Specify the output sample format.
+- **-in_channel_layout**: Set the input channel layout.
+- **-out_channel_layout**: Set the output channel layout.
+- **-output_sample_bits**: set number of used output sample bits for dithering.
 
 ## Scaler Options
 
-- -srcw: Set source width.
-- -srch: Set source height.
-- -dstw: Set destination width.
-- -dsth: Set destination height.
-- -src_format: Set source pixel format 
-- -dst_format: Set destination pixel format
-- -src_range: If value is set to `1`, indicates source is full range. Default value is `0`, which indicates source is limited range.
-- -dst_range: If value is set to `1`, enable full range for destination. Default value is `0`, which enables limited range.
+- **-srcw**: Set source width.
+- **-srch**: Set source height.
+- **-dstw**: Set destination width.
+- **-dsth**: Set destination height.
+- **-src_format**: Set source pixel format 
+- **-dst_format**: Set destination pixel format
+- **-src_range**: If value is set to `1`, indicates source is full range. Default value is `0`, which indicates source is limited range.
+- **-dst_range**: If value is set to `1`, enable full range for destination. Default value is `0`, which enables limited range.
 
