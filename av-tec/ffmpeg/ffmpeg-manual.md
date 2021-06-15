@@ -92,22 +92,22 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 ### Live Streaming Options
 
-- **-re**: 以本地帧频读数据，主要用于模拟捕获设备。 **It is useful for real-time output (e.g. live streaming).**
+- **-re**: 以本地帧频读数据，主要用于模拟捕获设备。**以实时帧率推流**
 - **-thread_queue_size size**: This option sets the maximum number of queued packets when reading from the file or device. **With low latency / high rate live streams, packets may be discarded if they are not read in a timely manner**
 
 ### Main Options
 
-- **-f fmt** (input/output): Force input or output file format.  so this option is not needed in most cases. see: `ffmpeg -formats`
+- **-f fmt**：强制指定输出文件格式. see: `ffmpeg -formats`
 
   ```cassandra
   ffmpeg -i audio.mp4 -f mp4 test.mp4
   ```
 
-- **-i url** (input): input file url
+- **-i url**：输入文件或者url 
 
-- **-y** (global): Overwrite output files without asking.
+- **-y**：覆盖输出文件 
 
-- **-n** (global): Do not overwrite output files, and exit immediately if a specified output file already exists.
+- **-n**：不覆盖输出文件 
 
 - **-c[:stream_specifier] codec**: 
 
@@ -116,11 +116,11 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   ffmpeg -i INPUT -c copy -c:v:1 libx264 -c:a:137 libvorbis OUTPUT
   ```
 
-- **-t duration** (input/output): 指定截取时间段的长度
+- **-t duration**：指定截取时间段的长度
 
-- **-to position** (input/output): 指定截取终止时间点
+- **-to position**：指定截取终止时间点
 
-- **-ss position** (input/output): 指定截取起始位置。**Note that in most formats it is not possible to seek exactly, so `ffmpeg` will seek to the closest seek point before position**. 
+- **-ss position**：指定截取起始位置。**Note that in most formats it is not possible to seek exactly, so `ffmpeg` will seek to the closest seek point before position**. 
 
   ```cassandra
   "55": 55 seconds
@@ -132,7 +132,7 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   
   // 从第10s开始，截取20s的视频片段. 
   ffmpeg -i 20200904-a.mp4 -ss 10 -t 20 -c:v copy -c:a copy -y cut.mp4
-  **-thread_queue_size size**: This option sets the maximum number of queued packets when reading from the file or device. **With low latency / high rate live streams, packets may be discarded if they are not read in a timely manner**
+  
   // 从第10s开始，截取终止点为30s的视频片段
   ffmpeg -i 20200904-a.mp4 -ss 10 -to 30 -c:v copy -c:a copy -y cut.mp4
   
@@ -196,9 +196,9 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
   ffmpeg -i a.mov -i b.mov -c copy -map 0:2 -map 1:6 out.mov
   ```
 
-- **-benchmark** (global): Show benchmarking information at the end of an encode.
+- **-benchmark**：Show benchmarking information at the end of an encode.
 
-- **-benchmark_all** (global): Show benchmarking information during the encode
+- **-benchmark_all**：Show benchmarking information during the encode
 
   ```cassandra
   ffmpeg -i 20200904-a.mp4 -c copy -benchmark -y cut.mp4
@@ -413,22 +413,6 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 - **-sn**: 删除容器中的字幕流
 - **-canvas_size size**: Set the size of the canvas used to render subtitles.
-
-## Syntax
-
-### Date
-
-- `[(YYYY-MM-DD|YYYYMMDD)[T|t| ]]((HH:MM:SS[.m...]]])|(HHMMSS[.m...]]]))[Z]`
-- `now`
-
-### Time duration
-
-- `55`: 55 seconds
-- `0.2`: 0.2 seconds
-- `200ms`: 200 milliseconds, 0.2s
-- `200000us`: 200000 microseconds, that’s 0.2s
-- `12:03:45`: 12 hours, 03 minutes and 45 seconds
-- `23.189`: 23.189 seconds
 
 ## Codec Options
 
@@ -733,9 +717,9 @@ ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
 
 - **-profile string**
 
-  - baseline: 基本画质，常用于视频通话
-  - main：主要画质，常用于视频流媒体领域
-  - high：高质量画质，常用于广电领域
+  - baseline: 基本画质，常用于视频通话。
+  - main：主要画质，常用于视频流媒体领域。
+  - high：高质量画质，常用于广电领域。
   - high10
   - high422
   - high444
