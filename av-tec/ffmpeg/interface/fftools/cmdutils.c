@@ -656,6 +656,7 @@ static int match_group_separator(const OptionGroupDef *groups, int nb_groups,
  * @param group_idx which group definition should this group belong to
  * @param arg argument of the group delimiting option
  */
+// 往OptionGroupList中添加文件
 static void finish_group(OptionParseContext *octx, int group_idx,
                          const char *arg)
 {
@@ -687,6 +688,7 @@ static void finish_group(OptionParseContext *octx, int group_idx,
 /*
  * Add an option instance to currently parsed group.
  */
+// 在global_opts或者cur_group中添加选项
 static void add_opt(OptionParseContext *octx, const OptionDef *opt,
                     const char *key, const char *val)
 {
@@ -708,16 +710,18 @@ static void init_parse_context(OptionParseContext *octx,
     memset(octx, 0, sizeof(*octx));
 
     // len(ctx.GroupList) = 2
-    // 输入文件和输出文件分别一个OptionGroup
+    // 输入文件和输出文件分别一个OptionGroupList
     // 初始化GlobalOptionGroup和OptionGroupList
     octx->nb_groups = nb_groups;
     octx->groups    = av_mallocz_array(octx->nb_groups, sizeof(*octx->groups));
     if (!octx->groups)
         exit_program(1);
 
+    // 将新分配的groupsList中的Def指向全局的groups
     for (i = 0; i < octx->nb_groups; i++)
         octx->groups[i].group_def = &groups[i];
 
+    // 设置global group
     octx->global_opts.group_def = &global_group;
     octx->global_opts.arg       = "";
 
@@ -781,6 +785,7 @@ int split_commandline(OptionParseContext *octx, int argc, char *argv[],
             continue;
         }
         /* unnamed group separators, e.g. output filename */
+        // 检测当前选项是否是输出文件匹配的格式，是的话，就将输出文件的所有选项写入到OptionGroupList中
         // 如果出现非-开头的配置项，填充outputFile.OptionGroupList
         if (opt[0] != '-' || !opt[1] || dashdash+1 == optindex) {
             // 填充outputFile.OptionGroupList
@@ -790,6 +795,7 @@ int split_commandline(OptionParseContext *octx, int argc, char *argv[],
         }
         opt++;
 
+// 从-ss 00:00:00这样的命令行参数中，提取00:00:00这样的信息
 #define GET_ARG(arg)                                                           \
 do {                                                                           \
     arg = argv[optindex++];                                                    \
@@ -800,7 +806,7 @@ do {                                                                           \
 } while (0)
 
         /* named group separators, e.g. -i */
-        // 检测当前的参数是否匹配inputFile或者outputFile
+        // 检测当前的选项是否匹配inputFile或者outputFile
         // 匹配的话，就对inputFile.OptionGroupList或者outputFile.OptionGroupList进行填充
         if ((ret = match_group_separator(groups, nb_groups, opt)) >= 0) {
             GET_ARG(arg);
@@ -812,9 +818,10 @@ do {                                                                           \
 
         /* normal options */
         // 遍历options列表，寻找可以匹配的opt
-        // 匹配到opt以后，将命令行参数中的选项加入到GlobalOptionGroup中
+        // 匹配到opt以后，将命令行参数中的选项加入到GlobalOptionGroup或者CurrentOptionGroup中
         po = find_option(options, opt);
         if (po->name) {
+            // 提取选项对应的arg
             if (po->flags & OPT_EXIT) {
                 /* optional argument, e.g. -h */
                 arg = argv[optindex++];
@@ -831,6 +838,7 @@ do {                                                                           \
         }
 
         /* AVOptions */
+        // 将选项加入到：codec_opts,format_opts,resample_opts,sws_dict,swr_opts
         if (argv[optindex]) {
             ret = opt_default(NULL, opt, argv[optindex]);
             if (ret >= 0) {
@@ -846,6 +854,7 @@ do {                                                                           \
         }
 
         /* boolean -nofoo options */
+        // 对所有-nofoo这样的选项，都在内部修改为：-foo 0这样的格式，并加入到GlobalOptionGroup或者CurrentOptionGroup中
         if (opt[0] == 'n' && opt[1] == 'o' &&
             (po = find_option(options, opt + 2)) &&
             po->name && po->flags & OPT_BOOL) {

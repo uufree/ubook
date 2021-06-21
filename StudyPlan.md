@@ -2,8 +2,6 @@
 
 [TOC]
 
-registry.sensetime.com/sensemedia/baishizhou-task-manager:v0.6.1-arm64-atlas300-ed7ecbc2-20210420
-
 ## Partation 00
 
 - 时间：2021.04.11～2021.04.30

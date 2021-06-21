@@ -91,6 +91,7 @@ typedef struct {
     int ofile_idx, ostream_idx;               // output
 } AudioChannelMap;
 
+// 每个输入/输出文件对应一个OptionsContext
 typedef struct OptionsContext {
     OptionGroup *g;
 

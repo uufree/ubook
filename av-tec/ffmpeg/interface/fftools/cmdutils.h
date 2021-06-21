@@ -308,6 +308,7 @@ typedef struct OptionGroupDef {
     int flags;
 } OptionGroupDef;
 
+// 表示一个输入或者输出文件
 typedef struct OptionGroup {
     const OptionGroupDef *group_def;
     const char *arg;
@@ -326,6 +327,7 @@ typedef struct OptionGroup {
  * A list of option groups that all have the same group type
  * (e.g. input files or output files)
  */
+// 输入/输出文件列表
 typedef struct OptionGroupList {
     const OptionGroupDef *group_def;
 
@@ -335,9 +337,13 @@ typedef struct OptionGroupList {
 
 // 保存一次命令中所有的参数选项
 typedef struct OptionParseContext {
+    // 全局选项
     OptionGroup global_opts;
 
+    // 输入文件分配一个List，输出文件分配一个List
+    // 输入文件可能有n个；输出文件可能有n个
     OptionGroupList *groups;
+    // 固定=2
     int           nb_groups;
 
     /* parsing state */

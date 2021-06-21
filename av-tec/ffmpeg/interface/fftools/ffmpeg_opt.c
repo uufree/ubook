@@ -1064,6 +1064,7 @@ static void dump_attachment(AVStream *st, const char *filename)
     avio_close(out);
 }
 
+// 打开输入的视频文件
 static int open_input_file(OptionsContext *o, const char *filename)
 {
     InputFile *f;
@@ -1094,6 +1095,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
         }
     }
 
+    // find format
     if (o->format) {
         if (!(file_iformat = av_find_input_format(o->format))) {
             av_log(NULL, AV_LOG_FATAL, "Unknown input format: '%s'\n", o->format);
@@ -1107,15 +1109,20 @@ static int open_input_file(OptionsContext *o, const char *filename)
     stdin_interaction &= strncmp(filename, "pipe:", 5) &&
                          strcmp(filename, "/dev/stdin");
 
+    // alloc format context
     /* get default parameters from command line */
     ic = avformat_alloc_context();
     if (!ic) {
         print_error(filename, AVERROR(ENOMEM));
         exit_program(1);
     }
+
+    // 设置音频采样率
     if (o->nb_audio_sample_rate) {
         av_dict_set_int(&o->g->format_opts, "sample_rate", o->audio_sample_rate[o->nb_audio_sample_rate - 1].u.i, 0);
     }
+
+    // 设置音频声道
     if (o->nb_audio_channels) {
         /* because we set audio_channels based on both the "ac" and
          * "channel_layout" options, we need to check that the specified
@@ -1126,6 +1133,8 @@ static int open_input_file(OptionsContext *o, const char *filename)
             av_dict_set_int(&o->g->format_opts, "channels", o->audio_channels[o->nb_audio_channels - 1].u.i, 0);
         }
     }
+
+    // 设置视频帧率
     if (o->nb_frame_rates) {
         /* set the format-level framerate option;
          * this is important for video grabbers, e.g. x11 */
@@ -1136,9 +1145,13 @@ static int open_input_file(OptionsContext *o, const char *filename)
                         o->frame_rates[o->nb_frame_rates - 1].u.str, 0);
         }
     }
+
+    // 设置视频帧大小
     if (o->nb_frame_sizes) {
         av_dict_set(&o->g->format_opts, "video_size", o->frame_sizes[o->nb_frame_sizes - 1].u.str, 0);
     }
+
+    // 设置视频帧的pix fmt
     if (o->nb_frame_pix_fmts)
         av_dict_set(&o->g->format_opts, "pixel_format", o->frame_pix_fmts[o->nb_frame_pix_fmts - 1].u.str, 0);
 
@@ -1147,6 +1160,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
     MATCH_PER_TYPE_OPT(codec_names, str, subtitle_codec_name, ic, "s");
     MATCH_PER_TYPE_OPT(codec_names, str,     data_codec_name, ic, "d");
 
+    // 设置video,audio,subtitle,data的codec
     if (video_codec_name)
         ic->video_codec    = find_codec_or_die(video_codec_name   , AVMEDIA_TYPE_VIDEO   , 0);
     if (audio_codec_name)
@@ -1161,15 +1175,20 @@ static int open_input_file(OptionsContext *o, const char *filename)
     ic->subtitle_codec_id  = subtitle_codec_name ? ic->subtitle_codec->id : AV_CODEC_ID_NONE;
     ic->data_codec_id      = data_codec_name     ? ic->data_codec->id     : AV_CODEC_ID_NONE;
 
+    // 设置为非阻塞模式
     ic->flags |= AVFMT_FLAG_NONBLOCK;
     if (o->bitexact)
         ic->flags |= AVFMT_FLAG_BITEXACT;
+    // 设置非阻塞模式中的callback
     ic->interrupt_callback = int_cb;
 
+    // 扫描全部的ts流的"Program Map Table"表。
     if (!av_dict_get(o->g->format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
         av_dict_set(&o->g->format_opts, "scan_all_pmts", "1", AV_DICT_DONT_OVERWRITE);
         scan_all_pmts_set = 1;
     }
+
+    // open file input
     /* open the input file with generic avformat function */
     err = avformat_open_input(&ic, filename, file_iformat, &o->g->format_opts);
     if (err < 0) {
@@ -3319,13 +3338,16 @@ static int open_files(OptionGroupList *l, const char *inout,
 {
     int i, ret;
 
+    // 遍历OptionInputFileList
     for (i = 0; i < l->nb_groups; i++) {
         OptionGroup *g = &l->groups[i];
         OptionsContext o;
 
+        // 初始化OptionContext
         init_options(&o);
         o.g = g;
 
+        // 将OptionGroup中的Option分配到OptionsContext中
         ret = parse_optgroup(&o, g);
         if (ret < 0) {
             av_log(NULL, AV_LOG_ERROR, "Error parsing options for %s file "
@@ -3335,7 +3357,9 @@ static int open_files(OptionGroupList *l, const char *inout,
         }
 
         av_log(NULL, AV_LOG_DEBUG, "Opening an %s file: %s.\n", inout, g->arg);
+        // 打开文件
         ret = open_file(&o, g->arg);
+        // 销毁context
         uninit_options(&o);
         if (ret < 0) {
             av_log(NULL, AV_LOG_ERROR, "Error opening %s file %s.\n",
@@ -3358,6 +3382,8 @@ int ffmpeg_parse_options(int argc, char **argv)
 
     /* split the commandline into an internal representation */
     // 将命令行参数根据groups和options拆解到optionCtx中
+    // options是预先定义好的各种选项：-y、-ss、-to等
+    // groups定义了输入和输出文件
     ret = split_commandline(&octx, argc, argv, options, groups,
                             FF_ARRAY_ELEMS(groups));
     if (ret < 0) {
@@ -3378,6 +3404,7 @@ int ffmpeg_parse_options(int argc, char **argv)
     term_init();
 
     /* open input files */
+    // 打开所有的input file
     ret = open_files(&octx.groups[GROUP_INFILE], "input", open_input_file);
     if (ret < 0) {
         av_log(NULL, AV_LOG_FATAL, "Error opening input files: ");
@@ -3385,6 +3412,7 @@ int ffmpeg_parse_options(int argc, char **argv)
     }
 
     /* create the complex filtergraphs */
+    // 创建并初始化complex filter graphs
     ret = init_complex_filters();
     if (ret < 0) {
         av_log(NULL, AV_LOG_FATAL, "Error initializing complex filters.\n");
