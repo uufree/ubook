@@ -41,7 +41,10 @@
   ffmpeg -i test.aac -ar 44100 -ac 2 test.pcm
   
   // pcm -> wav
-  ffmpeg -i test.pcm -ar 44100 -ac 2 test.wav
+  ffmpeg -ar 44100 -ac 2 -f s16le -i terror.pcm terror.wav
+  
+  // pcm -> aac
+  ffmpeg -ar 44100 -ac 2 -f s16le -i terror.pcm terror.aac
   
   // aac格式转MP3，并放大音量
   ffmpeg -i test.aac -c:a libmp3lame -ar 44100 -ac 2 -vol 3000 -f mp3 test.mp3

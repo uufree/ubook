@@ -71,7 +71,7 @@ int avio_read(const char *video_path) {
   }
   defer(avformat_close_input(&format_context));
 
-  if (0 > (ret= avformat_find_stream_info(format_context, nullptr))) {
+  if (0 > (ret = avformat_find_stream_info(format_context, nullptr))) {
     std::cerr << "call avformat_find_stream_info failed" << std::endl;
     return -6;
   }

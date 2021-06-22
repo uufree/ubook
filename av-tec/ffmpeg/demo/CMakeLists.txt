@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.2)
 project(main)
 
-set(CMAKE_C_COMPILER "/usr/local/gcc-4.9.4/bin/gcc")
-set(CMAKE_CXX_COMPILER "/usr/local/gcc-4.9.4/bin/g++")
+set(CMAKE_C_COMPILER "gcc")
+set(CMAKE_CXX_COMPILER "g++")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -lpthread")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2")

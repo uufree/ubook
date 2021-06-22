@@ -1,5 +1,6 @@
 #include <string>
 #include <atomic>
+#include <iostream>
 
 #include "st_audio_extract.h"
 #include "defer.h"
@@ -11,9 +12,15 @@ extern "C" {
 }
 
 // 一次采样占用2个字节
+//const int WAVE_BITS_PER_SAMPLE = 16;
+//const int DEFAULT_AUDIO_OUTPUT_SAMPLE_RATE = 16000;
+//const int DEFAULT_AUDIO_OUTPUT_CHANNEL_LAYOUT = AV_CH_LAYOUT_MONO;
+//const AVSampleFormat DEFAULT_AUDIO_OUTPUT_SAMPLE_FORMAT = AV_SAMPLE_FMT_S16;
+//const int DEFAULT_AUDIO_INPUT_SAMPLES_PER_FRAME = 1024;
+
 const int WAVE_BITS_PER_SAMPLE = 16;
-const int DEFAULT_AUDIO_OUTPUT_SAMPLE_RATE = 16000;
-const int DEFAULT_AUDIO_OUTPUT_CHANNEL_LAYOUT = AV_CH_LAYOUT_MONO;
+const int DEFAULT_AUDIO_OUTPUT_SAMPLE_RATE = 44100;
+const int DEFAULT_AUDIO_OUTPUT_CHANNEL_LAYOUT = AV_CH_LAYOUT_STEREO;
 const AVSampleFormat DEFAULT_AUDIO_OUTPUT_SAMPLE_FORMAT = AV_SAMPLE_FMT_S16;
 const int DEFAULT_AUDIO_INPUT_SAMPLES_PER_FRAME = 1024;
 
@@ -234,8 +241,8 @@ class AudioExtract final {
     }
     defer(fclose(wav_file));
 
-    WriteWaveHeader(wav_file);
-    WriteWaveFormat(wav_file, output_channels, out_audio_sample_rate, WAVE_BITS_PER_SAMPLE);
+    //WriteWaveHeader(wav_file);
+    //WriteWaveFormat(wav_file, output_channels, out_audio_sample_rate, WAVE_BITS_PER_SAMPLE);
     WriteWaveData(wav_file);
 
     return 0;
