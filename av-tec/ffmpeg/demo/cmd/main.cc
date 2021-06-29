@@ -21,12 +21,12 @@ int main() {
 //    }
 //  while (0);
 
-  do {
-    if ((ret = demuxer_and_transcode_aac_to_pcm("/Users/chenyouyou1/ffmpeg/terror.mp4", "/Users/chenyouyou1/Documents/ubook/av-tec/ffmpeg/demo/build/terror.pcm")) < 0) {
-      std::cerr << "call demuxer and transcode to pcm failed. ret: " << ret << std::endl;
-      return -1;
-    }
-  } while (0);
+//  do {
+//    if ((ret = demuxer_and_transcode_aac_to_pcm("/Users/chenyouyou1/ffmpeg/terror.mp4", "/Users/chenyouyou1/Documents/ubook/av-tec/ffmpeg/demo/build/terror.pcm")) < 0) {
+//      std::cerr << "call demuxer and transcode to pcm failed. ret: " << ret << std::endl;
+//      return -1;
+//    }
+//  } while (0);
 
 //  do {
 //    char errmsg[256];
@@ -39,6 +39,12 @@ int main() {
 //    }
 //  } while (0);
 
+  do {
+    if ((ret = pcm_to_aac("/Users/chenyouyou1/ffmpeg/terror.pcm", nullptr)) < 0) {
+      std::cerr << "call pcm to aac failed" << std::endl;
+      return -1;
+    }
+  } while(0);
 
   return 0;
 }
