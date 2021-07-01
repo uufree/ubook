@@ -33,9 +33,15 @@ make -j10
 make install
 
 aac:
+https://github.com/mstorsjo/fdk-aac
+mkdir build
+cd build
+cmake ..
+make -j4
+make install
 
 ffmpeg:
-./configure --enable-gpl --enable-shared --enable-libx264 --enable-libx265 --enable-libmp3lame --enable-libvpx
+./configure --enable-gpl --enable-nonfree --enable-shared --enable-libx264 --enable-libx265 --enable-libmp3lame --enable-libvpx --enable-libfdk-aac
 make -j10
 make install
 ```
