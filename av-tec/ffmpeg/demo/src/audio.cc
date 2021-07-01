@@ -300,11 +300,14 @@ int pcm_to_aac(const char *pcm_path, const char *aac_path) {
       return -9;
     }
 
-    av_samples_fill_arrays();
+    av_samples_fill_arrays(frame->data, frame->linesize, (const uint8_t*)frame_buffer, frame->channels, frame->nb_samples, (AVSampleFormat)frame->format, 0);
+    std::cout << "fill array" << std::endl;
+
     if ((ret = avcodec_send_frame(audio_codec_ctx, frame)) < 0) {
       std::cerr << "send frame to codec failed, ret: " << ret << std::endl;
       return -10;
     }
+    std::cout << "send frame" << std::endl;
 
     while (ret >= 0) {
       if ((ret = avcodec_receive_packet(audio_codec_ctx, packet)) < 0) {
