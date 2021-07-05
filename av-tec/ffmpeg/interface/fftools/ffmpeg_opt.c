@@ -3420,6 +3420,7 @@ int ffmpeg_parse_options(int argc, char **argv)
     }
 
     /* open output files */
+    // 打开所有的output file
     ret = open_files(&octx.groups[GROUP_OUTFILE], "output", open_output_file);
     if (ret < 0) {
         av_log(NULL, AV_LOG_FATAL, "Error opening output files: ");

@@ -55,27 +55,32 @@ typedef struct StreamContext {
 } StreamContext;
 static StreamContext *stream_ctx;
 
+// 打开输出的音视频文件
 static int open_input_file(const char *filename)
 {
     int ret;
     unsigned int i;
 
+    // 创建input format context
     ifmt_ctx = NULL;
     if ((ret = avformat_open_input(&ifmt_ctx, filename, NULL, NULL)) < 0) {
         av_log(NULL, AV_LOG_ERROR, "Cannot open input file\n");
         return ret;
     }
 
+    // 在input format context中寻找stream info
     if ((ret = avformat_find_stream_info(ifmt_ctx, NULL)) < 0) {
         av_log(NULL, AV_LOG_ERROR, "Cannot find stream information\n");
         return ret;
     }
 
+    // 对format ctx中的每一个stream都分配一个StreamContext结构
     stream_ctx = av_mallocz_array(ifmt_ctx->nb_streams, sizeof(*stream_ctx));
     if (!stream_ctx)
         return AVERROR(ENOMEM);
 
     for (i = 0; i < ifmt_ctx->nb_streams; i++) {
+        // 经典的
         AVStream *stream = ifmt_ctx->streams[i];
         AVCodec *dec = avcodec_find_decoder(stream->codecpar->codec_id);
         AVCodecContext *codec_ctx;
