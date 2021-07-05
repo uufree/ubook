@@ -268,7 +268,7 @@ int main(int argc, char **argv)
    * 3要素决定
    */
   frame->nb_samples     = codec_ctx->frame_size;
-  frame->format         = codec_ctx->sample_fmt;
+  frame->format         = AV_SAMPLE_FMT_S16;
   frame->channel_layout = codec_ctx->channel_layout;
   frame->channels = av_get_channel_layout_nb_channels(frame->channel_layout);
   printf("frame nb_samples:%d\n", frame->nb_samples);
