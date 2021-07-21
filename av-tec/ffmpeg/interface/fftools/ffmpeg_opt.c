@@ -1080,6 +1080,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
     char *    data_codec_name = NULL;
     int scan_all_pmts_set = 0;
 
+    // 根据：-to、-ss、-t等跳转选项，计算处理本音视频的：start time、end time、recording time
     if (o->stop_time != INT64_MAX && o->recording_time != INT64_MAX) {
         o->stop_time = INT64_MAX;
         av_log(NULL, AV_LOG_WARNING, "-t and -to cannot be used together; using -t.\n");
@@ -1111,6 +1112,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
 
     // alloc format context
     /* get default parameters from command line */
+    // 分配format ctx
     ic = avformat_alloc_context();
     if (!ic) {
         print_error(filename, AVERROR(ENOMEM));
@@ -1155,12 +1157,13 @@ static int open_input_file(OptionsContext *o, const char *filename)
     if (o->nb_frame_pix_fmts)
         av_dict_set(&o->g->format_opts, "pixel_format", o->frame_pix_fmts[o->nb_frame_pix_fmts - 1].u.str, 0);
 
+    // 获取codec names，例如：-c:v libx264
     MATCH_PER_TYPE_OPT(codec_names, str,    video_codec_name, ic, "v");
     MATCH_PER_TYPE_OPT(codec_names, str,    audio_codec_name, ic, "a");
     MATCH_PER_TYPE_OPT(codec_names, str, subtitle_codec_name, ic, "s");
     MATCH_PER_TYPE_OPT(codec_names, str,     data_codec_name, ic, "d");
 
-    // 设置video,audio,subtitle,data的codec
+    // 根据从上述获取的codec name，设置video,audio,subtitle,data的codec
     if (video_codec_name)
         ic->video_codec    = find_codec_or_die(video_codec_name   , AVMEDIA_TYPE_VIDEO   , 0);
     if (audio_codec_name)
@@ -1175,7 +1178,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
     ic->subtitle_codec_id  = subtitle_codec_name ? ic->subtitle_codec->id : AV_CODEC_ID_NONE;
     ic->data_codec_id      = data_codec_name     ? ic->data_codec->id     : AV_CODEC_ID_NONE;
 
-    // 设置为非阻塞模式
+    // 设置input format ctx为非阻塞模式
     ic->flags |= AVFMT_FLAG_NONBLOCK;
     if (o->bitexact)
         ic->flags |= AVFMT_FLAG_BITEXACT;
@@ -1197,21 +1200,27 @@ static int open_input_file(OptionsContext *o, const char *filename)
             av_log(NULL, AV_LOG_ERROR, "Did you mean file:%s?\n", filename);
         exit_program(1);
     }
+
+    // 如果在打开input format ctx时设置了：scan all pmts，此时就将这个选项注释掉
     if (scan_all_pmts_set)
         av_dict_set(&o->g->format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE);
     remove_avoptions(&o->g->format_opts, o->g->codec_opts);
     assert_avoptions(o->g->format_opts);
 
     /* apply forced codec ids */
+    // 对每个stream寻找codec id
     for (i = 0; i < ic->nb_streams; i++)
         choose_decoder(o, ic, ic->streams[i]);
 
+    // find stream info = 1，默认执行这个case
     if (find_stream_info) {
+        // 从o->g的全局选项中，过滤出stream options
         AVDictionary **opts = setup_find_stream_info_opts(ic, o->g->codec_opts);
         int orig_nb_streams = ic->nb_streams;
 
         /* If not enough info to get the stream parameters, we decode the
            first frames to get it. (used in mpeg case for example) */
+        // 填充stream info
         ret = avformat_find_stream_info(ic, opts);
 
         for (i = 0; i < orig_nb_streams; i++)
@@ -1227,6 +1236,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
         }
     }
 
+    // 根据输入信息计算start time和duration，确定是否需要进行seek
     if (o->start_time != AV_NOPTS_VALUE && o->start_time_eof != AV_NOPTS_VALUE) {
         av_log(NULL, AV_LOG_WARNING, "Cannot use -ss and -sseof both, using -ss for %s\n", filename);
         o->start_time_eof = AV_NOPTS_VALUE;
@@ -1252,6 +1262,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
         timestamp += ic->start_time;
 
     /* if seeking requested, we execute it */
+    // 对输入的文件执行seek操作
     if (o->start_time != AV_NOPTS_VALUE) {
         int64_t seek_timestamp = timestamp;
 
@@ -1276,17 +1287,20 @@ static int open_input_file(OptionsContext *o, const char *filename)
     }
 
     /* update the current parameters so that they match the one of the input stream */
+    // 将input format ctx中的信息添加到o中
     add_input_streams(o, ic);
 
     /* dump the file content */
     av_dump_format(ic, nb_input_files, filename, 0);
 
+    // 填充全局的files
     GROW_ARRAY(input_files, nb_input_files);
     f = av_mallocz(sizeof(*f));
     if (!f)
         exit_program(1);
     input_files[nb_input_files - 1] = f;
 
+    // 填充file中的数据
     f->ctx        = ic;
     f->ist_index  = nb_input_streams - ic->nb_streams;
     f->start_time = o->start_time;
@@ -1306,6 +1320,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
     f->thread_queue_size = o->thread_queue_size;
 #endif
 
+    // 找到所有未使用的opts
     /* check if all codec options have been used */
     unused_opts = strip_specifiers(o->g->codec_opts);
     for (i = f->ist_index; i < nb_input_streams; i++) {
@@ -1315,6 +1330,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
             av_dict_set(&unused_opts, e->key, NULL, 0);
     }
 
+    // 打印所有未使用的opts
     e = NULL;
     while ((e = av_dict_get(unused_opts, "", e, AV_DICT_IGNORE_SUFFIX))) {
         const AVClass *class = avcodec_get_class();
@@ -1344,6 +1360,7 @@ static int open_input_file(OptionsContext *o, const char *filename)
     }
     av_dict_free(&unused_opts);
 
+    // 打印信息
     for (i = 0; i < o->nb_dump_attachment; i++) {
         int j;
 

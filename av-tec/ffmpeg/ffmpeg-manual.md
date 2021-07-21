@@ -43,7 +43,7 @@ make install
 ffmpeg:
 ./configure --enable-gpl --enable-nonfree --enable-shared --enable-libx264 --enable-libx265 --enable-libmp3lame --enable-libvpx --enable-libfdk-aac
 make -j10
-make install
+make install 
 ```
 
 ## Usage

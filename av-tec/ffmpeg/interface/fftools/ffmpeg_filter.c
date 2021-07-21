@@ -231,10 +231,12 @@ static char *describe_filter_link(FilterGraph *fg, AVFilterInOut *inout, int in)
 
 static void init_input_filter(FilterGraph *fg, AVFilterInOut *in)
 {
+    // 从输入节点的media type
     InputStream *ist = NULL;
     enum AVMediaType type = avfilter_pad_get_type(in->filter_ctx->input_pads, in->pad_idx);
     int i;
 
+    // check media type
     // TODO: support other filter types
     if (type != AVMEDIA_TYPE_VIDEO && type != AVMEDIA_TYPE_AUDIO) {
         av_log(NULL, AV_LOG_FATAL, "Only video and audio filters supported "
@@ -242,6 +244,7 @@ static void init_input_filter(FilterGraph *fg, AVFilterInOut *in)
         exit_program(1);
     }
 
+    // 如果是输入节点，就从音视频文件中找到input stream
     if (in->name) {
         AVFormatContext *s;
         AVStream       *st = NULL;
@@ -316,6 +319,7 @@ static void init_input_filter(FilterGraph *fg, AVFilterInOut *in)
     ist->filters[ist->nb_filters - 1] = fg->inputs[fg->nb_inputs - 1];
 }
 
+// 初始化filter graph
 int init_complex_filtergraph(FilterGraph *fg)
 {
     AVFilterInOut *inputs, *outputs, *cur;
@@ -324,18 +328,22 @@ int init_complex_filtergraph(FilterGraph *fg)
 
     /* this graph is only used for determining the kinds of inputs
      * and outputs we have, and is discarded on exit from this function */
+    // 分配graph，并且设置只有1 thread处理graph
     graph = avfilter_graph_alloc();
     if (!graph)
         return AVERROR(ENOMEM);
     graph->nb_threads = 1;
 
+    // 解析filter graph dag
     ret = avfilter_graph_parse2(graph, fg->graph_desc, &inputs, &outputs);
     if (ret < 0)
         goto fail;
 
+    // 初始化输入节点
     for (cur = inputs; cur; cur = cur->next)
         init_input_filter(fg, cur);
 
+    // 初始化输出节点
     for (cur = outputs; cur;) {
         GROW_ARRAY(fg->outputs, fg->nb_outputs);
         fg->outputs[fg->nb_outputs - 1] = av_mallocz(sizeof(*fg->outputs[0]));

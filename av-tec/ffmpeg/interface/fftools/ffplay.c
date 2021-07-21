@@ -368,6 +368,7 @@ static SDL_Renderer *renderer;
 static SDL_RendererInfo renderer_info = {0};
 static SDL_AudioDeviceID audio_dev;
 
+// ffmpeg format <-> sdl format
 static const struct TextureFormatEntry {
     enum AVPixelFormat format;
     int texture_fmt;
@@ -394,6 +395,7 @@ static const struct TextureFormatEntry {
     { AV_PIX_FMT_NONE,           SDL_PIXELFORMAT_UNKNOWN },
 };
 
+
 #if CONFIG_AVFILTER
 static int opt_add_vfilter(void *optctx, const char *opt, const char *arg)
 {
@@ -403,6 +405,7 @@ static int opt_add_vfilter(void *optctx, const char *opt, const char *arg)
 }
 #endif
 
+// 判断两个音频的sample fmt和channel count是否相等
 static inline
 int cmp_audio_fmts(enum AVSampleFormat fmt1, int64_t channel_count1,
                    enum AVSampleFormat fmt2, int64_t channel_count2)
@@ -414,6 +417,7 @@ int cmp_audio_fmts(enum AVSampleFormat fmt1, int64_t channel_count1,
         return channel_count1 != channel_count2 || fmt1 != fmt2;
 }
 
+// 判断channel layout和channels是否匹配
 static inline
 int64_t get_valid_channel_layout(int64_t channel_layout, int channels)
 {
@@ -422,6 +426,7 @@ int64_t get_valid_channel_layout(int64_t channel_layout, int channels)
     else
         return 0;
 }
+
 
 static int packet_queue_put_private(PacketQueue *q, AVPacket *pkt)
 {
@@ -476,6 +481,7 @@ static int packet_queue_put_nullpacket(PacketQueue *q, AVPacket *pkt, int stream
 }
 
 /* packet queue handling */
+// 初始化packet queue
 static int packet_queue_init(PacketQueue *q)
 {
     memset(q, 0, sizeof(PacketQueue));
@@ -688,6 +694,7 @@ static void frame_queue_unref_item(Frame *vp)
     avsubtitle_free(&vp->sub);
 }
 
+// 初始化frame queue，提前分配frame
 static int frame_queue_init(FrameQueue *f, PacketQueue *pktq, int max_size, int keep_last)
 {
     int i;
@@ -709,6 +716,7 @@ static int frame_queue_init(FrameQueue *f, PacketQueue *pktq, int max_size, int 
     return 0;
 }
 
+// 清理frame queue，集中释放frame
 static void frame_queue_destory(FrameQueue *f)
 {
     int i;
@@ -887,6 +895,8 @@ static void calculate_display_rect(SDL_Rect *rect,
     rect->h = FFMAX((int)height, 1);
 }
 
+// 获取ffmpeg和SDL的pixel format映射关系
+// 获取ffmpeg pix_fmt在SDL输出时的混合模式（blend mode）
 static void get_sdl_pix_fmt_and_blendmode(int format, Uint32 *sdl_pix_fmt, SDL_BlendMode *sdl_blendmode)
 {
     int i;
@@ -909,9 +919,13 @@ static int upload_texture(SDL_Texture **tex, AVFrame *frame, struct SwsContext *
     int ret = 0;
     Uint32 sdl_pix_fmt;
     SDL_BlendMode sdl_blendmode;
+    // 将ffmpeg的pix_fmt转换至SDL的pix_fmt
     get_sdl_pix_fmt_and_blendmode(frame->format, &sdl_pix_fmt, &sdl_blendmode);
+
+    // 重新分配texture
     if (realloc_texture(tex, sdl_pix_fmt == SDL_PIXELFORMAT_UNKNOWN ? SDL_PIXELFORMAT_ARGB8888 : sdl_pix_fmt, frame->width, frame->height, sdl_blendmode, 0) < 0)
         return -1;
+    // 将frame数据填充至SDL texture中
     switch (sdl_pix_fmt) {
         case SDL_PIXELFORMAT_UNKNOWN:
             /* This should only happen if we are not using avfilter... */
@@ -978,9 +992,11 @@ static void video_image_display(VideoState *is)
     Frame *sp = NULL;
     SDL_Rect rect;
 
+    // 拿到本次要播放的picture
     vp = frame_queue_peek_last(&is->pictq);
     if (is->subtitle_st) {
         if (frame_queue_nb_remaining(&is->subpq) > 0) {
+            // 拿到本次要播放的subtitle
             sp = frame_queue_peek(&is->subpq);
 
             if (vp->pts >= sp->pts + ((float) sp->sub.start_display_time / 1000)) {
@@ -992,6 +1008,8 @@ static void video_image_display(VideoState *is)
                         sp->width = vp->width;
                         sp->height = vp->height;
                     }
+
+                    // 重新分配SDL texture
                     if (realloc_texture(&is->sub_texture, SDL_PIXELFORMAT_ARGB8888, sp->width, sp->height, SDL_BLENDMODE_BLEND, 1) < 0)
                         return;
 
@@ -1024,8 +1042,10 @@ static void video_image_display(VideoState *is)
         }
     }
 
+    // 计算需要播放的rect区域
     calculate_display_rect(&rect, is->xleft, is->ytop, is->width, is->height, vp->width, vp->height, vp->sar);
 
+    // 加载frame到texture中
     if (!vp->uploaded) {
         if (upload_texture(&is->vid_texture, vp->frame, &is->img_convert_ctx) < 0)
             return;
@@ -1033,9 +1053,12 @@ static void video_image_display(VideoState *is)
         vp->flip_v = vp->frame->linesize[0] < 0;
     }
 
+    // SDL版本特性
     set_sdl_yuv_conversion_mode(vp->frame);
+    // 将video texture拷贝到render中
     SDL_RenderCopyEx(renderer, is->vid_texture, NULL, &rect, 0, NULL, vp->flip_v ? SDL_FLIP_VERTICAL : 0);
     set_sdl_yuv_conversion_mode(NULL);
+    // 将subtitle texture拷贝到render中
     if (sp) {
 #if USE_ONEPASS_SUBTITLE_RENDER
         SDL_RenderCopy(renderer, is->sub_texture, NULL, &rect);
@@ -1060,6 +1083,8 @@ static inline int compute_mod(int a, int b)
     return a < 0 ? a%b + b : a%b;
 }
 
+// 音频帧播放
+// 使用ffplay播放音频的过程中，有一个绘图过程，这个函数应该就是那个绘图的过程
 static void video_audio_display(VideoState *s)
 {
     int i, i_start, x, y1, y, ys, delay, n, nb_display_channels;
@@ -1067,11 +1092,13 @@ static void video_audio_display(VideoState *s)
     int64_t time_diff;
     int rdft_bits, nb_freq;
 
+    // 没看懂，不知道想算啥
     for (rdft_bits = 1; (1 << rdft_bits) < 2 * s->height; rdft_bits++)
         ;
     nb_freq = 1 << (rdft_bits - 1);
 
     /* compute display index : center on currently output samples */
+    // 拿到音频数据的channels
     channels = s->audio_tgt.channels;
     nb_display_channels = channels;
     if (!s->paused) {
@@ -1080,6 +1107,7 @@ static void video_audio_display(VideoState *s)
         delay = s->audio_write_buf_size;
         delay /= n;
 
+        // 看不懂..
         /* to be more precise, we take into account the time spent since
            the last buffer computation */
         if (audio_callback_time) {
@@ -1087,6 +1115,7 @@ static void video_audio_display(VideoState *s)
             delay -= (time_diff * s->audio_tgt.freq) / 1000000;
         }
 
+        // 还是看不懂..
         delay += 2 * data_used;
         if (delay < data_used)
             delay = data_used;
@@ -1113,6 +1142,7 @@ static void video_audio_display(VideoState *s)
         i_start = s->last_i_start;
     }
 
+    // 果然，(255, 255, 255)是黑色，对应ffplay播放音频时的频谱线
     if (s->show_mode == SHOW_MODE_WAVES) {
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
@@ -1138,6 +1168,7 @@ static void video_audio_display(VideoState *s)
             }
         }
 
+        // 使用白色绘制频谱线
         SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
 
         for (ch = 1; ch < nb_display_channels; ch++) {
@@ -1145,6 +1176,7 @@ static void video_audio_display(VideoState *s)
             fill_rectangle(s->xleft, y, s->width, 1);
         }
     } else {
+        // 重新分配SDL texture
         if (realloc_texture(&s->vis_texture, SDL_PIXELFORMAT_ARGB8888, s->width, s->height, SDL_BLENDMODE_NONE, 1) < 0)
             return;
 
@@ -1338,13 +1370,16 @@ static int video_open(VideoState *is)
 {
     int w,h;
 
+    // 默认为：640 * 480
     w = screen_width ? screen_width : default_width;
     h = screen_height ? screen_height : default_height;
 
+    // 设置SDL window title = input file name
     if (!window_title)
         window_title = input_filename;
     SDL_SetWindowTitle(window, window_title);
 
+    // 设置SDL window
     SDL_SetWindowSize(window, w, h);
     SDL_SetWindowPosition(window, screen_left, screen_top);
     if (is_full_screen)
@@ -1365,10 +1400,14 @@ static void video_display(VideoState *is)
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
+
+    // 判断播放音频还是视频
+    // 播放音频频谱或者视频画面
     if (is->audio_st && is->show_mode != SHOW_MODE_VIDEO)
         video_audio_display(is);
     else if (is->video_st)
         video_image_display(is);
+    // 具体的播放过程
     SDL_RenderPresent(renderer);
 }
 
@@ -1420,6 +1459,7 @@ static void sync_clock_to_slave(Clock *c, Clock *slave)
         set_clock(c, slave_clock, slave->serial);
 }
 
+// 同步的3种方式：以video为主、以audio为主或者以外部时钟为主
 static int get_master_sync_type(VideoState *is) {
     if (is->av_sync_type == AV_SYNC_VIDEO_MASTER) {
         if (is->video_st)
@@ -1455,6 +1495,8 @@ static double get_master_clock(VideoState *is)
     return val;
 }
 
+// 没理解
+// 设置外部时钟速度
 static void check_external_clock_speed(VideoState *is) {
    if (is->video_stream >= 0 && is->videoq.nb_packets <= EXTERNAL_CLOCK_MIN_FRAMES ||
        is->audio_stream >= 0 && is->audioq.nb_packets <= EXTERNAL_CLOCK_MIN_FRAMES) {
@@ -1579,20 +1621,28 @@ static void video_refresh(void *opaque, double *remaining_time)
 
     Frame *sp, *sp2;
 
+    // (没有暂停 && 外部时钟同步 && 实时) 的条件下，检查并设置外部时钟速度
     if (!is->paused && get_master_sync_type(is) == AV_SYNC_EXTERNAL_CLOCK && is->realtime)
         check_external_clock_speed(is);
 
+    // 在播放音频的条件下：
     if (!display_disable && is->show_mode != SHOW_MODE_VIDEO && is->audio_st) {
         time = av_gettime_relative() / 1000000.0;
+        // 如果有强制刷新 或者 上次播放的时间 + 0.02 < current time
+        // 就播放音频
         if (is->force_refresh || is->last_vis_time + rdftspeed < time) {
             video_display(is);
             is->last_vis_time = time;
         }
+
+        // 设置下次播放前的休眠时间
         *remaining_time = FFMIN(*remaining_time, is->last_vis_time + rdftspeed - time);
     }
 
+    // 如果video stream存在，就进入这个branch
     if (is->video_st) {
 retry:
+        // 如果video frame queue中没有待播放的帧，就什么也不做
         if (frame_queue_nb_remaining(&is->pictq) == 0) {
             // nothing to do, no picture to display in the queue
         } else {
@@ -1600,15 +1650,19 @@ retry:
             Frame *vp, *lastvp;
 
             /* dequeue the picture */
+            // 播放的上一帧
             lastvp = frame_queue_peek_last(&is->pictq);
+            // 当前需要播放的帧
             vp = frame_queue_peek(&is->pictq);
 
+            // 如果serial不想等，就跳过当前待播放的帧，寻找下一帧
             if (vp->serial != is->videoq.serial) {
                 frame_queue_next(&is->pictq);
                 goto retry;
             }
 
-            if (lastvp->serial != vp->serial)
+            // 更新当前播放帧的frame timer
+           if (lastvp->serial != vp->serial)
                 is->frame_timer = av_gettime_relative() / 1000000.0;
 
             if (is->paused)
@@ -3079,6 +3133,7 @@ static VideoState *stream_open(const char *filename, AVInputFormat *iformat)
 {
     VideoState *is;
 
+    // 填充VideoState结构
     is = av_mallocz(sizeof(VideoState));
     if (!is)
         return NULL;
@@ -3093,6 +3148,7 @@ static VideoState *stream_open(const char *filename, AVInputFormat *iformat)
     is->xleft   = 0;
 
     /* start video display */
+    // 初始化video/audio/subtitle frame queue
     if (frame_queue_init(&is->pictq, &is->videoq, VIDEO_PICTURE_QUEUE_SIZE, 1) < 0)
         goto fail;
     if (frame_queue_init(&is->subpq, &is->subtitleq, SUBPICTURE_QUEUE_SIZE, 0) < 0)
@@ -3100,20 +3156,25 @@ static VideoState *stream_open(const char *filename, AVInputFormat *iformat)
     if (frame_queue_init(&is->sampq, &is->audioq, SAMPLE_QUEUE_SIZE, 1) < 0)
         goto fail;
 
+    // 初始化video/audio/subtitle packet queue
     if (packet_queue_init(&is->videoq) < 0 ||
         packet_queue_init(&is->audioq) < 0 ||
         packet_queue_init(&is->subtitleq) < 0)
         goto fail;
 
+    // 初始化条件变量
     if (!(is->continue_read_thread = SDL_CreateCond())) {
         av_log(NULL, AV_LOG_FATAL, "SDL_CreateCond(): %s\n", SDL_GetError());
         goto fail;
     }
 
+    // 初始化clock
     init_clock(&is->vidclk, &is->videoq.serial);
     init_clock(&is->audclk, &is->audioq.serial);
     init_clock(&is->extclk, &is->extclk.serial);
     is->audio_clock_serial = -1;
+
+    // 设置播放音量
     if (startup_volume < 0)
         av_log(NULL, AV_LOG_WARNING, "-volume=%d < 0, setting to 0\n", startup_volume);
     if (startup_volume > 100)
@@ -3233,14 +3294,21 @@ static void toggle_audio_display(VideoState *is)
 static void refresh_loop_wait_event(VideoState *is, SDL_Event *event) {
     double remaining_time = 0.0;
     SDL_PumpEvents();
+    // 如果没有从SDL中检测到事件，那就进入循环
     while (!SDL_PeepEvents(event, 1, SDL_GETEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT)) {
+        // 如果当前页面的鼠标存在超过1s，那就在本次刷新中隐藏鼠标(cursor)
         if (!cursor_hidden && av_gettime_relative() - cursor_last_shown > CURSOR_HIDE_DELAY) {
             SDL_ShowCursor(0);
             cursor_hidden = 1;
         }
+
+        // 初次进入循环的remaining_time=0，无需休眠
+        // 之后进入循环的remaining_time由video_refresh函数设置
         if (remaining_time > 0.0)
             av_usleep((int64_t)(remaining_time * 1000000.0));
+        // 默认的remaining_time = 10ms
         remaining_time = REFRESH_RATE;
+        // 如果没有暂停或者需要强制刷新，就进入video refresh function
         if (is->show_mode != SHOW_MODE_NONE && (!is->paused || is->force_refresh))
             video_refresh(is, &remaining_time);
         SDL_PumpEvents();
@@ -3685,8 +3753,10 @@ int main(int argc, char **argv)
     int flags;
     VideoState *is;
 
+    // nothing to do
     init_dynload();
 
+    // 设置日志信息
     av_log_set_flags(AV_LOG_SKIP_REPEATED);
     parse_loglevel(argc, argv, options);
 
@@ -3696,15 +3766,20 @@ int main(int argc, char **argv)
 #endif
     avformat_network_init();
 
+    // 设置了一个无用的值，本意可能是为了提前分配opts的空间
     init_opts();
 
+    // 注册信息，对于SIGINT和SIGTRERM的处理都是exit
     signal(SIGINT , sigterm_handler); /* Interrupt (ANSI).    */
     signal(SIGTERM, sigterm_handler); /* Termination (ANSI).  */
 
+    // 打印ffmpeg和依赖的库版本信息等
     show_banner(argc, argv, options);
 
+    // 解析输入的命令行参数
     parse_options(NULL, argc, argv, options, opt_input_file);
 
+    // 检测输入文件是否为空
     if (!input_filename) {
         show_usage();
         av_log(NULL, AV_LOG_FATAL, "An input file must be specified\n");
@@ -3713,9 +3788,13 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    // 检测是否要播放视频
     if (display_disable) {
         video_disable = 1;
     }
+
+    // SDL默认启动：video，audio，timer
+    // 初始化SDL
     flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER;
     if (audio_disable)
         flags &= ~SDL_INIT_AUDIO;
@@ -3733,9 +3812,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    // 设置SDL信号处理方式
     SDL_EventState(SDL_SYSWMEVENT, SDL_IGNORE);
     SDL_EventState(SDL_USEREVENT, SDL_IGNORE);
 
+    // 设置SDL可视化模块
     if (!display_disable) {
         int flags = SDL_WINDOW_HIDDEN;
         if (alwaysontop)
@@ -3744,10 +3825,12 @@ int main(int argc, char **argv)
 #else
             av_log(NULL, AV_LOG_WARNING, "Your SDL version doesn't support SDL_WINDOW_ALWAYS_ON_TOP. Feature will be inactive.\n");
 #endif
+        // 是否使用无边界模式或者边界可变
         if (borderless)
             flags |= SDL_WINDOW_BORDERLESS;
         else
             flags |= SDL_WINDOW_RESIZABLE;
+        // sdl: window -> render
         window = SDL_CreateWindow(program_name, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, default_width, default_height, flags);
         SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
         if (window) {
@@ -3767,12 +3850,14 @@ int main(int argc, char **argv)
         }
     }
 
+    // 初始化VideoState结构体
     is = stream_open(input_filename, file_iformat);
     if (!is) {
         av_log(NULL, AV_LOG_FATAL, "Failed to initialize VideoState!\n");
         do_exit(NULL);
     }
 
+    // 熟悉的event loop...
     event_loop(is);
 
     /* never returns */
