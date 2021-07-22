@@ -1089,7 +1089,7 @@ multiset、set在插入时是自动排序的，且自动排序的优点使得查
 - `istream& read (char* s, streamsize n)`
 - `istream& putback (char c)`：将一个字符放到流的当前位置
 - `streampos tellg()`：获取流的当前位置
-- istream& seekg (streamoff off, ios_base::seekdir way)`
+- `istream& seekg (streamoff off, ios_base::seekdir way)`
   - way：相对位置参数
     - `ios_base::beg`：起始偏移
     - `ios_base::cur`：当前位置偏移
@@ -1558,7 +1558,7 @@ multiset、set在插入时是自动排序的，且自动排序的优点使得查
   - `void sleep_for (const chrono::duration<Rep,Period>& rel_time)`
 
     ```c
-  #include <iostream>       // std::cout, std::endl
+    #include <iostream>       // std::cout, std::endl
     #include <thread>         // std::this_thread::sleep_for
     #include <chrono>         // std::chrono::seconds
      
@@ -2012,7 +2012,6 @@ multiset、set在插入时是自动排序的，且自动排序的优点使得查
 ![](./cpp_reference.assets/2-1.png)
 
 - `class exception`
-  
 ```c++
   class exception {
     public:
