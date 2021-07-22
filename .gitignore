@@ -5,3 +5,5 @@ build/*
 cmake-build-debug
 cmake-build-debug/*
 a
+core
+core*
