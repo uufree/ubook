@@ -13,5 +13,6 @@ link_directories(/usr/local/lib)
 
 file(GLOB SRC_FILES cmd/*.cc)
 file(GLOB SRC_ARRAY array/*.cc)
+file(GLOB SRC_LIST list/*.cc)
 
-add_executable(main ${SRC_FILES} ${SRC_ARRAY})
+add_executable(main ${SRC_FILES} ${SRC_ARRAY} ${SRC_LIST})
