@@ -18,6 +18,39 @@ struct ListNode {
 class Solution {
  public:
   void deleteNode(ListNode* node) {
-    if ()
+    ListNode* prev = nullptr;
+    while (node->next) {
+      node->val = node->next->val;
+      prev = node;
+      node = node->next;
+    }
+    prev->next = nullptr;
   }
 };
+
+ListNode* n1 = nullptr;
+ListNode* construct() {
+  n1 = new ListNode(4);
+  ListNode* n2 = new ListNode(5);
+  ListNode* n3 = new ListNode(1);
+  ListNode* n4 = new ListNode(9);
+
+  n1->next = n2;
+  n2->next = n3;
+  n3->next = n4;
+
+  return n3;
+}
+
+int main() {
+  ListNode* node = construct();
+  Solution sol;
+  sol.deleteNode(node);
+
+  while (n1 != nullptr) {
+    std::cout << n1->val << std::endl;
+    n1 = n1->next;
+  }
+
+  return 0;
+}

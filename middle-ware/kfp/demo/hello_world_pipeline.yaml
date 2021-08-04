@@ -1,0 +1,119 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: hello-world-2-
+  annotations:
+    pipelines.kubeflow.org/kfp_sdk_version: 1.6.6
+    pipelines.kubeflow.org/pipeline_compilation_time: '2021-08-04T11:13:39.918236'
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "A simple intro pipeline",
+      "inputs": [{"default": "hi there", "name": "text", "optional": true, "type":
+      "String"}, {"default": "", "name": "pipeline-output-directory"}, {"default":
+      "pipeline/hello-world", "name": "pipeline-name"}], "name": "hello-world"}'
+    pipelines.kubeflow.org/v2_pipeline: "true"
+  labels:
+    pipelines.kubeflow.org/v2_pipeline: "true"
+    pipelines.kubeflow.org/kfp_sdk_version: 1.6.6
+spec:
+  entrypoint: hello-world-2
+  templates:
+  - name: hello-world
+    container:
+      args:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def hello_world(text):
+            print(text)
+            return text
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Hello world', description='')
+        _parser.add_argument("--text", dest="text", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = hello_world(**_parsed_args)
+      - --text
+      - '{{$.inputs.parameters[''text'']}}'
+      command: [/kfp-launcher/launch, --mlmd_server_address, $(METADATA_GRPC_SERVICE_HOST),
+        --mlmd_server_port, $(METADATA_GRPC_SERVICE_PORT), --runtime_info_json, $(KFP_V2_RUNTIME_INFO),
+        --container_image, $(KFP_V2_IMAGE), --task_name, hello-world, --pipeline_name,
+        '{{inputs.parameters.pipeline-name}}', --run_id, $(KFP_RUN_ID), --run_resource,
+        workflows.argoproj.io/$(WORKFLOW_ID), --namespace, $(KFP_NAMESPACE), --pod_name,
+        $(KFP_POD_NAME), --pod_uid, $(KFP_POD_UID), --pipeline_root, '{{inputs.parameters.pipeline-output-directory}}',
+        --enable_caching, $(ENABLE_CACHING), --, 'text={{inputs.parameters.text}}',
+        --]
+      env:
+      - name: KFP_POD_NAME
+        valueFrom:
+          fieldRef: {fieldPath: metadata.name}
+      - name: KFP_POD_UID
+        valueFrom:
+          fieldRef: {fieldPath: metadata.uid}
+      - name: KFP_NAMESPACE
+        valueFrom:
+          fieldRef: {fieldPath: metadata.namespace}
+      - name: WORKFLOW_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''workflows.argoproj.io/workflow'']'}
+      - name: KFP_RUN_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipeline/runid'']'}
+      - name: ENABLE_CACHING
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipelines.kubeflow.org/enable_caching'']'}
+      - {name: KFP_V2_IMAGE, value: 'registry.sensetime.com/industry/python:alpine3.6'}
+      - {name: KFP_V2_RUNTIME_INFO, value: '{"inputParameters": {"text": {"type":
+          "STRING"}}, "inputArtifacts": {}, "outputParameters": {}, "outputArtifacts":
+          {}}'}
+      envFrom:
+      - configMapRef: {name: metadata-grpc-configmap, optional: true}
+      image: registry.sensetime.com/industry/python:alpine3.6
+      volumeMounts:
+      - {mountPath: /kfp-launcher, name: kfp-launcher}
+    inputs:
+      parameters:
+      - {name: pipeline-name}
+      - {name: pipeline-output-directory}
+      - {name: text}
+    metadata:
+      annotations:
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/component_ref: '{}'
+        pipelines.kubeflow.org/arguments.parameters: '{"text": "{{inputs.parameters.text}}"}'
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.6.6
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/enable_caching: "true"
+    initContainers:
+    - command: [/bin/mount_launcher.sh]
+      image: registry.sensetime.com/industry/kfp-launcher:1.6.6
+      name: kfp-launcher
+      mirrorVolumeMounts: true
+    volumes:
+    - {name: kfp-launcher}
+  - name: hello-world-2
+    inputs:
+      parameters:
+      - {name: pipeline-name}
+      - {name: pipeline-output-directory}
+      - {name: text}
+    dag:
+      tasks:
+      - name: hello-world
+        template: hello-world
+        arguments:
+          parameters:
+          - {name: pipeline-name, value: '{{inputs.parameters.pipeline-name}}'}
+          - {name: pipeline-output-directory, value: '{{inputs.parameters.pipeline-output-directory}}'}
+          - {name: text, value: '{{inputs.parameters.text}}'}
+  arguments:
+    parameters:
+    - {name: text, value: hi there}
+    - {name: pipeline-output-directory, value: ''}
+    - {name: pipeline-name, value: pipeline/hello-world}
+  serviceAccountName: pipeline-runner

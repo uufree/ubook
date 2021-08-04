@@ -41,9 +41,9 @@ def div2_op(a: int) -> int:
     name="random_calculate",
     description="random calculate integer"
 )
-def mytest() -> int:
-    r1 = random_op(1, 100)
-    r2 = random_op(1, 100)
+def mytest(a: int, b: int) -> int:
+    r1 = random_op(a, b)
+    r2 = random_op(a, b)
     sum = sum_op(r1.outputs["Output"], r2.outputs["Output"])
     mul = mul2_op(sum.outputs["Output"])
     div = div2_op(sum.outputs["Output"])
@@ -54,4 +54,5 @@ if __name__ == "__main__":
     pipeline_conf.set_image_pull_secrets([k8s_client.V1ObjectReference(name="regcred")])
     compiler.Compiler(mode=kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE).compile(pipeline_func=mytest,
                                                                                 package_path="mytest.yaml",
-                                                                                pipeline_conf=pipeline_conf)
+                                                                                pipeline_conf=pipeline_conf,
+                                                                                type_check=True)
