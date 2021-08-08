@@ -656,16 +656,7 @@ int avformat_transfer_internal_stream_timing_info(const AVOutputFormat *ofmt,
    * This flag is mainly intended for testing.
    */
   #define AVFMT_FLAG_BITEXACT         0x0400
-  #if FF_API_LAVF_MP4A_LATM
-  #define AVFMT_FLAG_MP4A_LATM    0x8000 ///< Deprecated, does nothing.
-  #endif
   #define AVFMT_FLAG_SORT_DTS    0x10000 ///< try to interleave outputted packets by dts (using this flag can slow demuxing down)
-  #if FF_API_LAVF_PRIV_OPT
-  #define AVFMT_FLAG_PRIV_OPT    0x20000 ///< Enable use of private options by delaying codec open (deprecated, will do nothing once av_demuxer_open() is removed)
-  #endif
-  #if FF_API_LAVF_KEEPSIDE_FLAG
-  #define AVFMT_FLAG_KEEP_SIDE_DATA 0x40000 ///< Deprecated, does nothing.
-  #endif
   #define AVFMT_FLAG_FAST_SEEK   0x80000 ///< Enable fast, but inaccurate seeks for some formats
   #define AVFMT_FLAG_SHORTEST   0x100000 ///< Stop muxing when the shortest stream stops.
   #define AVFMT_FLAG_AUTO_BSF   0x200000 ///< Add bitstream filters as requested by the muxer
@@ -1054,28 +1045,6 @@ int avformat_transfer_internal_stream_timing_info(const AVOutputFormat *ofmt,
        */
       enum AVCodecID data_codec_id;
   
-  #if FF_API_OLD_OPEN_CALLBACKS
-      /**
-       * Called to open further IO contexts when needed for demuxing.
-       *
-       * This can be set by the user application to perform security checks on
-       * the URLs before opening them.
-       * The function should behave like avio_open2(), AVFormatContext is provided
-       * as contextual information and to reach AVFormatContext.opaque.
-       *
-       * If NULL then some simple checks are used together with avio_open2().
-       *
-       * Must not be accessed directly from outside avformat.
-       * @See av_format_set_open_cb()
-       *
-       * Demuxing: Set by user.
-       *
-       * @deprecated Use io_open and io_close.
-       */
-      attribute_deprecated
-      int (*open_cb)(struct AVFormatContext *s, AVIOContext **p, const char *url, int flags, const AVIOInterruptCB *int_cb, AVDictionary **options);
-  #endif
-  
       /**
        * ',' separated list of allowed protocols.
        * - encoding: unused
@@ -1141,9 +1110,9 @@ int avformat_transfer_internal_stream_timing_info(const AVOutputFormat *ofmt,
   } AVFormatContext;
   ```
 
-  
-
 ## AVCodec
+
+
 
 ## AVFilter
 
