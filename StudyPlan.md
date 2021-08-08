@@ -7,11 +7,7 @@
 - redis 20d
 - kafka 10d
 - nginx 20d
-- es 10d
 - mysql 20d
-- mongo 10d
-- k8s 20d
-- grpc + pb 10d
 
 ## Schedule
 
