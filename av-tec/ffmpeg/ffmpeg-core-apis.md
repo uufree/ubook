@@ -1112,6 +1112,124 @@ int avformat_transfer_internal_stream_timing_info(const AVOutputFormat *ofmt,
 
 ## AVCodec
 
+### avcodec
+
+```c++
+/// @brief avcodec utils
+unsigned avcodec_version(void);
+const char *avcodec_configuration(void);
+const char *avcodec_license(void);
+
+/// @brief Allocate/Free an AVCodecContext and set its fields to default values
+/// @param [in] codec
+/// @return An AVCodecContext filled with default values or NULL on failure.
+AVCodecContext *avcodec_alloc_context3(const AVCodec *codec);
+void avcodec_free_context(AVCodecContext **avctx);
+
+/// @brief Fill the parameters struct based on the values from the supplied codec context.
+/// @return >= 0 on success, a negative AVERROR code on failure
+int avcodec_parameters_from_context(AVCodecParameters *par, const AVCodecContext *codec);
+
+/// @brief Fill the codec context based on the values from the supplied codec parameters.
+/// @return >= 0 on success, a negative AVERROR code on failure.
+int avcodec_parameters_to_context(AVCodecContext *codec, const AVCodecParameters *par);
+
+/// @brief Initialize the AVCodecContext to use the given AVCodec. 
+/// @return zero on success, a negative value on error
+int avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, AVDictionary **options);
+int avcodec_close(AVCodecContext *avctx);
+
+/// @brief Decode a subtitle message.
+/// @param [in] codec ctx
+/// @param [out] The preallocated AVSubtitle in which the decoded subtitle will be stored,  must be freed with avsubtitle_free if *got_sub_ptr is set.
+/// @param [in, out] zero if no subtitle could be decompressed, otherwise, it is nonzero.
+/// @param [in] the input AVPacket containing the input buffer.
+/// @return Return a negative value on error, otherwise return the number of bytes used.
+int avcodec_decode_subtitle2(AVCodecContext *avctx, AVSubtitle *sub, int *got_sub_ptr, AVPacket *avpkt);
+int avcodec_encode_subtitle(AVCodecContext *avctx, uint8_t *buf, int buf_size, const AVSubtitle *sub);
+void avsubtitle_free(AVSubtitle *sub);
+
+/// @brief send pkg to decoder
+/// @param [in] avctx codec context
+/// @param [in] this will be a single video frame, or several complete audio frames.
+/// @return 0 on success, otherwise negative error code:
+/// AVERROR(EAGAIN): input is not accepted in the current state, user must read output with avcodec_receive_frame() 
+/// AVERROR_EOF: the decoder has been flushed, and no new packets can be sent to it
+/// AVERROR(EINVAL): codec not opened, it is an encoder, or requires flush
+/// AVERROR(ENOMEM): failed to add packet to internal queue
+int avcodec_send_packet(AVCodecContext *avctx, const AVPacket *avpkt);
+
+/// @brief recv frame from decoder
+/// @param [in] avctx codec context
+/// @param [out] the function will always call av_frame_unref(frame) before doing anything else.
+/// @return 0 on success, otherwise negative error code:
+/// AVERROR(EAGAIN): output is not available in this state, user must try to send new input
+/// AVERROR_EOF: the decoder has been fully flushed
+/// AVERROR(EINVAL): codec not opened, or it is an encoder
+int avcodec_receive_frame(AVCodecContext *avctx, AVFrame *frame);
+
+/// @brief send frame to encoder
+/// @param [in] codec ctx
+/// @param [in] video frame 
+/// @return 0 on success, otherwise negative error code:
+/// AVERROR(EAGAIN): input is not accepted in the current state, user must read output with avcodec_receive_packet()
+/// AVERROR_EOF: the encoder has been flushed
+/// AVERROR(EINVAL): codec not opened, refcounted_frames not set, it is a decoder, or requires flush
+/// @note If AV_CODEC_CAP_VARIABLE_FRAME_SIZE is set, then each frame can have any number of samples.
+/// @note If it is not set, frame->nb_samples must be equal to avctx->frame_size for all frames except the last.
+int avcodec_send_frame(AVCodecContext *avctx, const AVFrame *frame);
+
+/// @brief read pkg from encoder
+/// @param [in] codec context
+/// @param [out] pkg
+/// @return 0 on success, otherwise negative error code:
+/// AVERROR(EAGAIN): output is not available in the current state, user must try to send input
+/// AVERROR_EOF: the encoder has been fully flushed, and there will be no more output packets
+/// AVERROR(EINVAL): codec not opened, or it is a decoder
+int avcodec_receive_packet(AVCodecContext *avctx, AVPacket *avpkt);
+
+/// @brief 重要，但是不会用。在遇到硬件解码问题时，需要额外关注这个问题
+int avcodec_get_hw_frames_parameters(AVCodecContext *avctx,
+                                     AVBufferRef *device_ref,
+                                     enum AVPixelFormat hw_pix_fmt,
+                                     AVBufferRef **out_frames_ref);
+
+/// @brief Fill AVFrame audio data and linesize pointers.
+/// @param [in] frame->nb_samples must be set prior to calling the function. This function fills in frame->data,
+/// frame->extended_data, frame->linesize[0].
+/// @param [in] channel count
+/// @param [in] sample format
+/// @param [in] 将这个buf中的数据填充至AVFrame中
+/// @param [in] buf size
+/// @param [in] align, default = 0
+/// @return >=0 on success, negative error code on failure
+int avcodec_fill_audio_frame(AVFrame *frame, int nb_channels,
+                             enum AVSampleFormat sample_fmt, const uint8_t *buf,
+                             int buf_size, int align);
+
+/// @brief Reset the internal codec state / flush internal buffers. Should be called when seeking or when switching to a different stream.
+void avcodec_flush_buffers(AVCodecContext *avctx);
+
+/// @brief Return codec bits per sample.
+int av_get_bits_per_sample(enum AVCodecID codec_id);
+
+/// @brief Return audio frame duration.
+/// @param [in] avcodec ctx
+/// @param [in] size of the frame, or 0 if unknown
+/// @return frame duration
+int av_get_audio_frame_duration(AVCodecContext *avctx, int frame_bytes);
+```
+
+### bsf
+
+```c++
+/// @brief get a bsf filter
+const AVBitStreamFilter *av_bsf_get_by_name(const char *name);
+
+/// @brief Iterate over all registered bitstream filters.
+const AVBitStreamFilter *av_bsf_iterate(void **opaque);
+```
+
 
 
 ## AVFilter
