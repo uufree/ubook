@@ -842,3 +842,9 @@ typedef struct AVFormatContext {
 
 ## AvCodec
 
+## AvUtil
+
+### AvMediaType
+
+
+

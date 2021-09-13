@@ -189,6 +189,12 @@
     // 放大
     ffmpeg -i 20200904-a.mp4 -vf scale=iw*2:ih*2 big.mp4
     ```
+    
+  - 提取视频关键帧
+
+    ```cassandra
+    ffmpeg -i 20200904-a.mp4 -an -vf select='eq(pict_type\,I)' -vsync 2 -f image2 images/image-%03d.jpg
+    ```
 
 - 直播
 
