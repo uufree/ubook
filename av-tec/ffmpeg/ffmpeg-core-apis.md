@@ -2,9 +2,23 @@
 
 [TOC]
 
+## Core Structures
+
+- AvFormatContext
+- AvStream
+- AvCodecContext
+- AvBSFContext
+- AVBitStreamFilter
+- AvCodec
+- AvPacket
+- AvFrame
+- AvFilter
+- AvFilterContext
+- AvFilterGraph
+
 ## AvFormat
 
-### avio
+### avio.h
 
 ```c++
 /// @brief Allocate and initialize an AVIOContext for buffered I/O. 
@@ -68,7 +82,7 @@ int avio_printf(AVIOContext *s, const char *fmt, ...);
 void avio_flush(AVIOContext *s);
 ```
 
-### avfmt
+### Avformat.h
 
 ```c++
 /// @brief avfmt utils
@@ -270,7 +284,7 @@ int avformat_transfer_internal_stream_timing_info(const AVOutputFormat *ofmt,
 
 ## AvCodec
 
-### avcodec
+### avcodec.h
 
 ```c++
 /// @brief avcodec utils
@@ -378,7 +392,7 @@ int av_get_bits_per_sample(enum AVCodecID codec_id);
 int av_get_audio_frame_duration(AVCodecContext *avctx, int frame_bytes);
 ```
 
-### bsf
+### bsf.h
 
 ```c++
 /// @brief get a bsf filter
@@ -420,7 +434,7 @@ int av_bsf_list_finalize(AVBSFList **lst, AVBSFContext **bsf);
 int av_bsf_list_parse_str(const char *str, AVBSFContext **bsf);
 ```
 
-### codec
+### codec.h
 
 ```c++
 /// @brief Iterate over all registered codecs.
@@ -458,7 +472,7 @@ void avcodec_parameters_free(AVCodecParameters **par);
 int avcodec_parameters_copy(AVCodecParameters *dst, const AVCodecParameters *src);
 ```
 
-### packet
+### packet.h
 
 ```c++
 /// @brief Allocate an AVPacket and set its fields to default values.
@@ -734,7 +748,7 @@ int swr_convert_frame(SwrContext *swr,
 
 ## AvUtils
 
-### audio_fifo
+### audio_fifo.h
 
 ```c++
 /// @brief Allocate an AVAudioFifo
@@ -775,7 +789,7 @@ int av_audio_fifo_size(AVAudioFifo *af);
 int av_audio_fifo_space(AVAudioFifo *af);
 ```
 
-### avutil
+### avutil.h
 
 ```c++
 enum AVMediaType {
@@ -810,7 +824,7 @@ char av_get_picture_type_char(enum AVPictureType pict_type);
 AVRational av_get_time_base_q(void);
 ```
 
-### channel_layout
+### channel_layout.h
 
 ```c++
 #define AV_CH_LAYOUT_MONO              (AV_CH_FRONT_CENTER)
@@ -848,7 +862,7 @@ uint64_t av_get_channel_layout(const char *name);
 int av_get_channel_layout_nb_channels(uint64_t channel_layout);
 ```
 
-### common
+### common.h
 
 ```c++
 #define FFUDIV(a,b) (((a)>0 ?(a):(a)-(b)+1) / (b))
@@ -869,7 +883,7 @@ float av_clipf_c(float a, float amin, float amax);
 double av_clipd_c(double a, double amin, double amax);
 ```
 
-### error
+### error.h
 
 ```c++
 /// @brief Put a description of the AVERROR code errnum in errbuf.
@@ -886,360 +900,9 @@ static inline char *av_make_error_string(char *errbuf, size_t errbuf_size, int e
     av_make_error_string((char[AV_ERROR_MAX_STRING_SIZE]){0}, AV_ERROR_MAX_STRING_SIZE, errnum)
 ```
 
-### avframe
+### avframe.h
 
 ```c++
-typedef struct AVFrame {
-#define AV_NUM_DATA_POINTERS 8
-    /**
-     * pointer to the picture/channel planes.
-     * This might be different from the first allocated byte
-     *
-     * Some decoders access areas outside 0,0 - width,height, please
-     * see avcodec_align_dimensions2(). Some filters and swscale can read
-     * up to 16 bytes beyond the planes, if these filters are to be used,
-     * then 16 extra bytes must be allocated.
-     *
-     * NOTE: Except for hwaccel formats, pointers not needed by the format
-     * MUST be set to NULL.
-     */
-    uint8_t *data[AV_NUM_DATA_POINTERS];
-
-    /**
-     * For video, size in bytes of each picture line.
-     * For audio, size in bytes of each plane.
-     *
-     * For audio, only linesize[0] may be set. For planar audio, each channel
-     * plane must be the same size.
-     *
-     * For video the linesizes should be multiples of the CPUs alignment
-     * preference, this is 16 or 32 for modern desktop CPUs.
-     * Some code requires such alignment other code can be slower without
-     * correct alignment, for yet other it makes no difference.
-     *
-     * @note The linesize may be larger than the size of usable data -- there
-     * may be extra padding present for performance reasons.
-     */
-    int linesize[AV_NUM_DATA_POINTERS];
-
-    /**
-     * pointers to the data planes/channels.
-     *
-     * For video, this should simply point to data[].
-     *
-     * For planar audio, each channel has a separate data pointer, and
-     * linesize[0] contains the size of each channel buffer.
-     * For packed audio, there is just one data pointer, and linesize[0]
-     * contains the total size of the buffer for all channels.
-     *
-     * Note: Both data and extended_data should always be set in a valid frame,
-     * but for planar audio with more channels that can fit in data,
-     * extended_data must be used in order to access all channels.
-     */
-    uint8_t **extended_data;
-
-    /**
-     * @name Video dimensions
-     * Video frames only. The coded dimensions (in pixels) of the video frame,
-     * i.e. the size of the rectangle that contains some well-defined values.
-     *
-     * @note The part of the frame intended for display/presentation is further
-     * restricted by the @ref cropping "Cropping rectangle".
-     * @{
-     */
-    int width, height;
-    /**
-     * @}
-     */
-
-    /**
-     * number of audio samples (per channel) described by this frame
-     */
-    int nb_samples;
-
-    /**
-     * format of the frame, -1 if unknown or unset
-     * Values correspond to enum AVPixelFormat for video frames,
-     * enum AVSampleFormat for audio)
-     */
-    int format;
-
-    /**
-     * 1 -> keyframe, 0-> not
-     */
-    int key_frame;
-
-    /**
-     * Picture type of the frame.
-     */
-    enum AVPictureType pict_type;
-
-    /**
-     * Sample aspect ratio for the video frame, 0/1 if unknown/unspecified.
-     */
-  	// 视频样本的纵横比
-    AVRational sample_aspect_ratio;
-
-    /**
-     * Presentation timestamp in time_base units (time when frame should be shown to user).
-     */
-    int64_t pts;
-
-    /**
-     * DTS copied from the AVPacket that triggered returning this frame. (if frame threading isn't used)
-     * This is also the Presentation time of this AVFrame calculated from
-     * only AVPacket.dts values without pts values.
-     */
-    int64_t pkt_dts;
-
-    /**
-     * picture number in bitstream order
-     */
-  	// 按比特流顺序排列的图片编号
-    int coded_picture_number;
-    /**
-     * picture number in display order
-     */
-  	// 按播放顺序排列的图片编号
-    int display_picture_number;
-
-    /**
-     * quality (between 1 (good) and FF_LAMBDA_MAX (bad))
-     */
-    int quality;
-
-    /**
-     * for some private data of the user
-     */
-    void *opaque;
-
-    /**
-     * When decoding, this signals how much the picture must be delayed.
-     * extra_delay = repeat_pict / (2*fps)
-     */
-    int repeat_pict;
-
-    /**
-     * The content of the picture is interlaced（交错）.
-     */
-    int interlaced_frame;
-
-    /**
-     * If the content is interlaced, is top field displayed first.
-     */
-    int top_field_first;
-
-    /**
-     * Tell user application that palette has changed from previous frame.
-     */
-  	// 告诉用户应用程序调色板已从前一帧更改。
-    int palette_has_changed;
-
-    /**
-     * reordered opaque 64 bits (generally an integer or a double precision float
-     * PTS but can be anything).
-     * The user sets AVCodecContext.reordered_opaque to represent the input at
-     * that time,
-     * the decoder reorders values as needed and sets AVFrame.reordered_opaque
-     * to exactly one of the values provided by the user through AVCodecContext.reordered_opaque
-     */
-    int64_t reordered_opaque;
-
-    /**
-     * Sample rate of the audio data.
-     */
-    int sample_rate;
-
-    /**
-     * Channel layout of the audio data.
-     */
-    uint64_t channel_layout;
-
-    /**
-     * AVBuffer references backing the data for this frame. If all elements of
-     * this array are NULL, then this frame is not reference counted. This array
-     * must be filled contiguously -- if buf[i] is non-NULL then buf[j] must
-     * also be non-NULL for all j < i.
-     *
-     * There may be at most one AVBuffer per data plane, so for video this array
-     * always contains all the references. For planar audio with more than
-     * AV_NUM_DATA_POINTERS channels, there may be more buffers than can fit in
-     * this array. Then the extra AVBufferRef pointers are stored in the
-     * extended_buf array.
-     */
-    AVBufferRef *buf[AV_NUM_DATA_POINTERS];
-
-    /**
-     * For planar audio which requires more than AV_NUM_DATA_POINTERS
-     * AVBufferRef pointers, this array will hold all the references which
-     * cannot fit into AVFrame.buf.
-     *
-     * Note that this is different from AVFrame.extended_data, which always
-     * contains all the pointers. This array only contains the extra pointers,
-     * which cannot fit into AVFrame.buf.
-     *
-     * This array is always allocated using av_malloc() by whoever constructs
-     * the frame. It is freed in av_frame_unref().
-     */
-    AVBufferRef **extended_buf;
-    /**
-     * Number of elements in extended_buf.
-     */
-    int        nb_extended_buf;
-
-    AVFrameSideData **side_data;
-    int            nb_side_data;
-
-/**
- * @defgroup lavu_frame_flags AV_FRAME_FLAGS
- * @ingroup lavu_frame
- * Flags describing additional frame properties.
- *
- * @{
- */
-
-/**
- * The frame data may be corrupted, e.g. due to decoding errors.
- */
-#define AV_FRAME_FLAG_CORRUPT       (1 << 0)
-/**
- * A flag to mark the frames which need to be decoded, but shouldn't be output.
- */
-#define AV_FRAME_FLAG_DISCARD   (1 << 2)
-/**
- * @}
- */
-
-    /**
-     * Frame flags, a combination of @ref lavu_frame_flags
-     */
-    int flags;
-
-    /**
-     * MPEG vs JPEG YUV range.
-     * - encoding: Set by user
-     * - decoding: Set by libavcodec
-     */
-    enum AVColorRange color_range;
-
-    enum AVColorPrimaries color_primaries;
-
-    enum AVColorTransferCharacteristic color_trc;
-
-    /**
-     * YUV colorspace type.
-     * - encoding: Set by user
-     * - decoding: Set by libavcodec
-     */
-    enum AVColorSpace colorspace;
-
-    enum AVChromaLocation chroma_location;
-
-    /**
-     * frame timestamp estimated using various heuristics, in stream time base
-     * - encoding: unused
-     * - decoding: set by libavcodec, read by user.
-     */
-    int64_t best_effort_timestamp;
-
-    /**
-     * reordered pos from the last AVPacket that has been input into the decoder
-     * - encoding: unused
-     * - decoding: Read by user.
-     */
-    int64_t pkt_pos;
-
-    /**
-     * duration of the corresponding packet, expressed in
-     * AVStream->time_base units, 0 if unknown.
-     * - encoding: unused
-     * - decoding: Read by user.
-     */
-    int64_t pkt_duration;
-
-    /**
-     * metadata.
-     * - encoding: Set by user.
-     * - decoding: Set by libavcodec.
-     */
-    AVDictionary *metadata;
-
-    /**
-     * decode error flags of the frame, set to a combination of
-     * FF_DECODE_ERROR_xxx flags if the decoder produced a frame, but there
-     * were errors during the decoding.
-     * - encoding: unused
-     * - decoding: set by libavcodec, read by user.
-     */
-    int decode_error_flags;
-#define FF_DECODE_ERROR_INVALID_BITSTREAM   1
-#define FF_DECODE_ERROR_MISSING_REFERENCE   2
-#define FF_DECODE_ERROR_CONCEALMENT_ACTIVE  4
-#define FF_DECODE_ERROR_DECODE_SLICES       8
-
-    /**
-     * number of audio channels, only used for audio.
-     * - encoding: unused
-     * - decoding: Read by user.
-     */
-    int channels;
-
-    /**
-     * size of the corresponding packet containing the compressed
-     * frame.
-     * It is set to a negative value if unknown.
-     * - encoding: unused
-     * - decoding: set by libavcodec, read by user.
-     */
-    int pkt_size;
-
-    /**
-     * For hwaccel-format frames, this should be a reference to the
-     * AVHWFramesContext describing the frame.
-     */
-    AVBufferRef *hw_frames_ctx;
-
-    /**
-     * AVBufferRef for free use by the API user. FFmpeg will never check the
-     * contents of the buffer ref. FFmpeg calls av_buffer_unref() on it when
-     * the frame is unreferenced. av_frame_copy_props() calls create a new
-     * reference with av_buffer_ref() for the target frame's opaque_ref field.
-     *
-     * This is unrelated to the opaque field, although it serves a similar
-     * purpose.
-     */
-    AVBufferRef *opaque_ref;
-
-    /**
-     * @anchor cropping
-     * @name Cropping
-     * Video frames only. The number of pixels to discard from the the
-     * top/bottom/left/right border of the frame to obtain the sub-rectangle of
-     * the frame intended for presentation.
-     * @{
-     */
-    size_t crop_top;
-    size_t crop_bottom;
-    size_t crop_left;
-    size_t crop_right;
-    /**
-     * @}
-     */
-
-    /**
-     * AVBufferRef for internal use by a single libav* library.
-     * Must not be used to transfer data between libraries.
-     * Has to be NULL when ownership of the frame leaves the respective library.
-     *
-     * Code outside the FFmpeg libs should never check or change the contents of the buffer ref.
-     *
-     * FFmpeg calls av_buffer_unref() on it when the frame is unreferenced.
-     * av_frame_copy_props() calls create a new reference with av_buffer_ref()
-     * for the target frame's private_ref field.
-     */
-    AVBufferRef *private_ref;
-} AVFrame;
-
 /// @brief Allocate/Free an AVFrame and set its fields to default values.
 AVFrame *av_frame_alloc(void);
 void av_frame_free(AVFrame **frame);
@@ -1272,7 +935,7 @@ int av_frame_copy_props(AVFrame *dst, const AVFrame *src);
 int av_frame_apply_cropping(AVFrame *frame, int flags);
 ```
 
-### hwcontext
+### hwcontext.h
 
 ```c++
 enum AVHWDeviceType {
@@ -1295,7 +958,7 @@ enum AVHWDeviceType {
 // 硬件解码相关的，遇到了再说
 ```
 
-### imageutils
+### imageutils.h
 
 ```c++
 /// @brief Compute the max pixel step for each plane of an image with a format described by pixdesc.
@@ -1343,7 +1006,7 @@ int av_image_fill_black(uint8_t *dst_data[4], const ptrdiff_t dst_linesize[4],
                         int width, int height);
 ```
 
-### mathematics
+### mathematics.h
 
 ```c++
 enum AVRounding {
@@ -1392,7 +1055,7 @@ int64_t av_rescale_q_rnd(int64_t a, AVRational bq, AVRational cq,
                          enum AVRounding rnd) av_const;
 ```
 
-### pixfmt
+### pixfmt.h
 
 ```c++
 enum AVPixelFormat {
@@ -1718,7 +1381,7 @@ enum AVColorSpace {
 };
 ```
 
-### samplefmt
+### samplefmt.h
 
 ```c++
 enum AVSampleFormat {
@@ -1777,7 +1440,7 @@ int av_samples_set_silence(uint8_t **audio_data, int offset, int nb_samples,
                            int nb_channels, enum AVSampleFormat sample_fmt);
 ```
 
-### time
+### time.h
 
 ```c++
 /// @brief Get the current time in microseconds.
