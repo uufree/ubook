@@ -9,7 +9,7 @@ int main() {
 
   AvIODemo demo;
   demo.avio_malloc_free();
-  demo.read_from_memory("/Users/chenyouyou1/ubook/av-tec/ffmpeg/demo/data/terror.mp4");
+  demo.read_from_memory("/home/sensetime/ffmpeg/terror.mp4");
 
   return 0;
 }

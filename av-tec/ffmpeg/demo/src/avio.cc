@@ -7,7 +7,11 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavformat/avio.h>
 #include <libavutil/file.h>
+#include <libavutil/error.h>
 }
+
+const int AvIODemo::errbuf_size;
+char AvIODemo::errbuf[AvIODemo::errbuf_size];
 
 /// demo 1
 int AvIODemo::avio_malloc_free() {
@@ -32,7 +36,7 @@ int AvIODemo::avio_malloc_free() {
 /// demo2
 int AvIODemo::read_and_write() {
   int buffer_size = 1024;
-  uint8_t *buffer = (uint8_t*)av_malloc(buffer_size);
+  uint8_t *buffer = (uint8_t *) av_malloc(buffer_size);
   if (buffer == nullptr) {
     std::cerr << "alloc buffer failed" << std::endl;
     return -1;
@@ -62,8 +66,8 @@ struct buffer_data {
 };
 
 int read_packet(void *opaque, uint8_t *buf, int buf_size) {
-  buffer_data *bd = (buffer_data*)opaque;
-  buf_size = buf_size >= bd->buf_size ? buf_size : bd->buf_size;
+  buffer_data *bd = (buffer_data *) opaque;
+  buf_size = std::min<int>(buf_size, bd->buf_size);
   if (!buf_size) {
     return AVERROR_EOF;
   }
@@ -85,20 +89,22 @@ int AvIODemo::read_from_memory(const char *video_path) {
 
   // 1. reaf video
   if ((ret = av_file_map(video_path, &bd.buf, &bd.buf_size, 0, nullptr)) < 0) {
-    std::cerr << "call av_file_map failed, err: " << av_err2str(ret) << std::endl;
+    av_make_error_string(errbuf, errbuf_size, ret);
+    std::cout << "call av_file_map failed, err: " << errbuf << std::endl;
     return -1;
   }
   defer(av_file_unmap(bd.buf, bd.buf_size));
 
   // 2. alloc avio context buffer
-  if (!(avio_ctx_buffer = (uint8_t*)av_malloc(avio_ctx_buffer_size))) {
+  if (!(avio_ctx_buffer = (uint8_t *) av_malloc(avio_ctx_buffer_size))) {
     std::cerr << "alloc avio context buffer failed" << std::endl;
     return -2;
   }
   defer(av_free(avio_ctx_buffer));
 
   // 3. alloc avio context
-  if (!(avio_context = avio_alloc_context(avio_ctx_buffer, avio_ctx_buffer_size, 0, &bd, read_packet, nullptr, nullptr))) {
+  if (!(avio_context =
+            avio_alloc_context(avio_ctx_buffer, avio_ctx_buffer_size, 1, &bd, read_packet, nullptr, nullptr))) {
     std::cerr << "alloc avio context failed" << std::endl;
     return -3;
   }
@@ -116,64 +122,17 @@ int AvIODemo::read_from_memory(const char *video_path) {
 
   // 6. open format context
   if ((ret = avformat_open_input(&format_context, nullptr, nullptr, nullptr)) < 0) {
-    std::cerr << "open format context failed, err: " << av_err2str(ret) << std::endl;
+    av_make_error_string(errbuf, errbuf_size, ret);
+    std::cout << "open format context failed, err: " << errbuf << std::endl;
     return -5;
   }
   defer(avformat_close_input(&format_context));
+
+  // 7. find stream info
+  std::cout << "find stream info" << std::endl;
+
+  // 8. dump stream info
+  std::cout << "dump stream info" << std::endl;
 
   return 0;
 }
-
-int AvIODemo::avio_read(const char *video_path) {
-  AVFormatContext *format_context = nullptr;
-  AVIOContext *avio_context = nullptr;
-  uint8_t *buffer = nullptr;
-  uint8_t *avio_ctx_buffer = nullptr;
-  size_t buffer_size = 0;
-  size_t avio_ctx_buffer_size = 4096;
-  buffer_data bd = {nullptr, 0};
-  int ret = 0;
-
-  if ((ret = av_file_map(video_path, &buffer, &buffer_size, 0, nullptr)) < 0) {
-    std::cerr << "call av_file_map failed, ret: " << ret << std::endl;
-    return -1;
-  }
-  bd.buf = buffer;
-  bd.buf_size = buffer_size;
-  defer(av_file_unmap(buffer, buffer_size));
-
-  if (!(format_context = avformat_alloc_context())) {
-    std::cerr << "alloc format context failed" << std::endl;
-    return -2;
-  }
-  defer(avformat_free_context(format_context));
-
-  if (!(avio_ctx_buffer = (uint8_t *) av_malloc(avio_ctx_buffer_size))) {
-    std::cerr << "alloc avio_ctx buffer failed" << std::endl;
-    return -3;
-  }
-
-  if (!(avio_context =
-            avio_alloc_context(avio_ctx_buffer, avio_ctx_buffer_size, 0, &bd, &read_packet, nullptr, nullptr))) {
-    std::cerr << "alloc avio_ctx failed" << std::endl;
-    return -4;
-  }
-  defer(avio_context_free(&avio_context));
-
-  format_context->pb = avio_context;
-
-  if ((ret = avformat_open_input(&format_context, nullptr, nullptr, nullptr)) < 0) {
-    std::cerr << "open format failed" << std::endl;
-    return -5;
-  }
-  defer(avformat_close_input(&format_context));
-
-  if (0 > (ret = avformat_find_stream_info(format_context, nullptr))) {
-    std::cerr << "call avformat_find_stream_info failed" << std::endl;
-    return -6;
-  }
-
-  av_dump_format(format_context, 0, "", 0);
-
-  return 0;
-};
