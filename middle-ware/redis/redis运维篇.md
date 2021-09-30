@@ -131,13 +131,7 @@ protected-mode yes
 # If port 0 is specified Redis will not listen on a TCP socket.
 port 6379
 
-# TCP listen() backlog.
-#
-# In high requests-per-second environments you need a high backlog in order
-# to avoid slow clients connection issues. Note that the Linux kernel
-# will silently truncate it to the value of /proc/sys/net/core/somaxconn so
-# make sure to raise both the value of somaxconn and tcp_max_syn_backlog
-# in order to get the desired effect.
+# TCP监听队列长度。默认511。建议同步此配置与/proc/sys/net/core/somaxconn中的配置相同
 tcp-backlog 511
 
 # Unix socket.
@@ -149,24 +143,11 @@ tcp-backlog 511
 # unixsocket /run/redis.sock
 # unixsocketperm 700
 
-# Close the connection after a client is idle for N seconds (0 to disable)
+# 设置客户端idle timeout来限制连接的最大空闲时间。一旦客户端连接的idle时间超过了timeout，连接将被关闭。
+# 设置为0，则意味者server端不做任何处理
 timeout 0
 
-# TCP keepalive.
-#
-# If non-zero, use SO_KEEPALIVE to send TCP ACKs to clients in absence
-# of communication. This is useful for two reasons:
-#
-# 1) Detect dead peers.
-# 2) Force network equipment in the middle to consider the connection to be
-#    alive.
-#
-# On Linux, the specified value (in seconds) is the period used to send ACKs.
-# Note that to close the connection the double of the time is needed.
-# On other kernels the period depends on the kernel configuration.
-#
-# A reasonable value for this option is 300 seconds, which is the new
-# Redis default starting with Redis 3.2.1.
+# 在TCP这一层进行keepalive检测，防止大量死连接占用系统资源。设置为0，意味着不进行keepalive检测
 tcp-keepalive 300
 
 ################################# TLS/SSL #####################################
@@ -982,21 +963,8 @@ acllog-max-len 128
 
 ################################### CLIENTS ####################################
 
-# Set the max number of connected clients at the same time. By default
-# this limit is set to 10000 clients, however if the Redis server is not
-# able to configure the process file limit to allow for the specified limit
-# the max number of allowed clients is set to the current file limit
-# minus 32 (as Redis reserves a few file descriptors for internal uses).
-#
-# Once the limit is reached Redis will close all the new connections sending
-# an error 'max number of clients reached'.
-#
-# IMPORTANT: When Redis Cluster is used, the max number of connections is also
-# shared with the cluster bus: every node in the cluster will use two
-# connections, one incoming and another outgoing. It is important to size the
-# limit accordingly in case of very large clusters.
-#
-# maxclients 10000
+# redis允许的最大的clients连接数量。默认10000
+maxclients 10000
 
 ############################## MEMORY MANAGEMENT ################################
 
@@ -1394,20 +1362,8 @@ aof-use-rdb-preamble yes
 
 ################################ LUA SCRIPTING  ###############################
 
-# Max execution time of a Lua script in milliseconds.
-#
-# If the maximum execution time is reached Redis will log that a script is
-# still in execution after the maximum allowed time and will start to
-# reply to queries with an error.
-#
-# When a long running script exceeds the maximum execution time only the
-# SCRIPT KILL and SHUTDOWN NOSAVE commands are available. The first can be
-# used to stop a script that did not yet call any write commands. The second
-# is the only way to shut down the server in the case a write command was
-# already issued by the script but the user doesn't want to wait for the natural
-# termination of the script.
-#
-# Set it to 0 or a negative value for unlimited execution without warnings.
+# 限制lua脚本的最大执行时间，默认为5s
+# 设置为0或者负数时，就意味着不限制lua脚本的执行时间
 lua-time-limit 5000
 
 ################################ REDIS CLUSTER  ###############################
@@ -1587,27 +1543,9 @@ lua-time-limit 5000
 # cluster-announce-bus-port 6380
 
 ################################## SLOW LOG ###################################
-
-# The Redis Slow Log is a system to log queries that exceeded a specified
-# execution time. The execution time does not include the I/O operations
-# like talking with the client, sending the reply and so forth,
-# but just the time needed to actually execute the command (this is the only
-# stage of command execution where the thread is blocked and can not serve
-# other requests in the meantime).
-#
-# You can configure the slow log with two parameters: one tells Redis
-# what is the execution time, in microseconds, to exceed in order for the
-# command to get logged, and the other parameter is the length of the
-# slow log. When a new command is logged the oldest one is removed from the
-# queue of logged commands.
-
-# The following time is expressed in microseconds, so 1000000 is equivalent
-# to one second. Note that a negative number disables the slow log, while
-# a value of zero forces the logging of every command.
-slowlog-log-slower-than 10000
-
-# There is no limit to this length. Just be aware that it will consume memory.
-# You can reclaim memory used by the slow log with SLOWLOG RESET.
+# 慢查询配置项。如果一条消息的超过10ms，就会被加入慢查询日志中。慢查询日志队列的默认长度为128，若已达到默
+# 认长度限制，就会丢弃掉最早入队的消息。
+slowlog-log-slower-than 10000 #微秒，默认配置=10ms
 slowlog-max-len 128
 
 ################################ LATENCY MONITOR ##############################
@@ -1741,10 +1679,7 @@ notify-keyspace-events ""
 # gopher-enabled no
 
 ############################### ADVANCED CONFIG ###############################
-
-# Hashes are encoded using a memory efficient data structure when they have a
-# small number of entries, and the biggest entry does not exceed a given
-# threshold. These thresholds can be configured using the following directives.
+# hash结构：当元素数量小于512，并且每个元素小于64字节时。否则使用hashtable
 hash-max-ziplist-entries 512
 hash-max-ziplist-value 64
 
@@ -1779,16 +1714,10 @@ list-max-ziplist-size -2
 # etc.
 list-compress-depth 0
 
-# Sets have a special encoding in just one case: when a set is composed
-# of just strings that happen to be integers in radix 10 in the range
-# of 64 bit signed integers.
-# The following configuration setting sets the limit in the size of the
-# set in order to use this special memory saving encoding.
+# 当集合中的元素都是整数，且元素个数小于512时，采用intset编码。否则使用hashtable
 set-max-intset-entries 512
 
-# Similarly to hashes and lists, sorted sets are also specially encoded in
-# order to save a lot of space. This encoding is only used when the length and
-# elements of a sorted set are below the following limits:
+# 当集合元素个数小于128，并且每个元素小于64字节时，采用ziplist编码。否则使用skiplist
 zset-max-ziplist-entries 128
 zset-max-ziplist-value 64
 
@@ -2087,10 +2016,75 @@ jemalloc-bg-thread yes
 
 ## 工具链
 
-- redis-server：启动redis server
-- redis-cli：redis client工具
-- redis-benchmark：redis基准测试工具
-- redis-check-aof：redis-aof持久化文件检测和修复工具
-- redis-check-dump：redis-rdb持久化文件检测和修复工具
-- redis-sentinel：启动redis sentinel
+### redis-cli
+
+- `-h <hostname>`：Server hostname (default: 127.0.0.1).
+- `-p <port>`：Server port (default: 6379).
+- `-a <password>`：Password to use when connecting to the server.
+- `-r <repeat>`：遇到失败时，尝试执行n次
+- `-i <interval>`：使用`-r`选项重复执行时 ，每个间隔`<interval>`秒
+- `-x`：从STDIN中读取参数的值，例如：`echo "world" | redis-cli -x set hello`
+- `-c`：启用Cluster Mode
+- `--raw`：要求返回原始的数据格式（二进制编码）
+- `--no-raw`：返回编码后的数据格式
+- `--csv`：返回csv类型的数据格式
+- `--stat`：从Keys、Mem、Clients、Blocked、Requests、Connections几个方面打印Redis Server的状态
+- `--latency`：测试Client <-> Redis Server之间的延迟，秒单位。
+- `--latency-history`：以分时段的方式了解延迟信息。可以使用`-i`控制分段时间。
+  - 例如：`redis-cli  -i 3 --latency-history`
+- `--latency-dist`：以分段图表的方式打印延迟信息
+- `--rdb <filename>`：请求Redis生成并发送RDB文件，保存至本地
+- `--pipe`：将原始的protocol发送给Redis Server
+- `--pipe-timeout <n>`：限制发送原始protocol的超时时间
+- `--bigkeys`：使用scan命令对Redis的键进行采样,从中找到内存占用比较大的键值，这些键可能是系统的瓶颈
+- `--memkeys`：使用scan命令对Redis的键进行采样,从中找到内存占用比较大的键值，这些键可能是系统的瓶颈
+- `--memkeys-samples`：找出n个内存占用过大的keys
+- `--hotkeys`：找出系统的hot keys。仅在LFU淘汰策略下工作。
+- `--eval <file>`：运行指定的Lua Scripts
+- `--ldb`：Used with --eval enable the Redis Lua debugger.
+- `--slave`：把当前客户端模拟成当前Redis节点的从节点，可以用来获取当前Redis节点的更新操作。合理的利用这个选项可以记录当前连接Redis节点的一些更新操作
+- `--cluster <command> [args...] [opts...]`：Cluster Manager command and arguments
+
+### redis-server
+
+- `--test-memory <MBs>`：测试当前机器的内存是否够用
+- `--sentinel`：启动哨兵模式
+- `redis-server /etc/redis.conf`：读取配置文件并启动
+
+### redis-benchmark
+
+- `-h <hostname>`：Server hostname (default: 127.0.0.1).
+- `-p <port>`：Server port (default: 6379).
+- `-a <password>`：Password to use when connecting to the server.
+- `-c <clients>`：代表客户端的并发数量。默认50
+- `-n <requests>`：总的请求数量。默认100000
+- `-d <size>`：GET/SET请求的数据量。默认3bytes
+- `--dbnum <db>`：选择那个数据库进行测试。默认0
+- `--threads <num>`：启用多少个线程发送数据
+- `--cluster`：启用cluster模式
+- `-k <boolean>`：客户端是否使用keepalive选项。1表示启用，0表示不启用。默认1
+- `-r <keyspacelen>`：向Redis Server插入更多的随机键。
+  - 例如`redis-benchmark -c 100 -n 20000 -r 10000`：Redis会在Key Name后加一个12位的后缀，`-r 10000`表示只对后四位做随机处理
+- `-P <numreq>`：每个请求中pipeline的数量。默认为1
+- `-e`：如果出错，会将错误日志打印至终端
+- `-q`：仅打印requests per second信息
+- `--csv`：输出csv格式的信息
+- `-l`：Loop。永远不停下测试。
+- `-t <tests>`：仅对指定命令进行基准测试。
+  - 例`redis-benchmark -t get,set -q`，仅对GET、SET命令测试
+
+### redis-check-aof
+
+AOF持久化文件检测和修复工具。
+
+### redis-check-rdb
+
+RDB持久化文件检测和修复工具。
+
+```shell
+redis-check-rdb ./test.rdb
+redis-check-aof ./test.aof
+```
+
+
 
