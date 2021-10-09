@@ -13,6 +13,7 @@
 - 切换数据库：`select dnIndex`
 - 清理当前数据库：`flushdb`
 - 清理所有数据库：`flushall`
+- RDB持久化：`bgsave`
 
 ## 键管理
 
@@ -276,7 +277,6 @@ Redis提供GEO（地理位置定位）功能，支持存储地理位置信息。
 - 清理所有脚本：`script flush`
 
 - Kill所有正在执行的脚本：`script kill`
-
 
 
 

@@ -77,5 +77,11 @@ Redis制定了**RESP**（Redis Serialization Protocol）实现客户端和服务
   - 整数回复：在RESP中第一个字节为":"
   - 字符串回复：在RESP中第一个字节为"$"
   - 多条字符串回复：在RESP中第一个字节为"*"
+## 持久化
+
+- RDB
+- AOF
+
+  
 
   
