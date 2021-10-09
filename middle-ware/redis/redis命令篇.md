@@ -276,7 +276,3 @@ Redis提供GEO（地理位置定位）功能，支持存储地理位置信息。
 - 清理所有脚本：`script flush`
 
 - Kill所有正在执行的脚本：`script kill`
-
-
-
-
