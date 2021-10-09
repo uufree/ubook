@@ -397,34 +397,13 @@ proc-title-template "{title} {listen-addr} {server-mode}"
 # save 300 100
 # save 60 10000
 
-# By default Redis will stop accepting writes if RDB snapshots are enabled
-# (at least one save point) and the latest background save failed.
-# This will make the user aware (in a hard way) that data is not persisting
-# on disk properly, otherwise chances are that no one will notice and some
-# disaster will happen.
-#
-# If the background saving process will start working again Redis will
-# automatically allow writes again.
-#
-# However if you have setup your proper monitoring of the Redis server
-# and persistence, you may want to disable this feature so that Redis will
-# continue to work as usual even if there are problems with disk,
-# permissions, and so forth.
+# 当出现写入失败的时候，停止写入工作
 stop-writes-on-bgsave-error yes
 
-# Compress string objects using LZF when dump .rdb databases?
-# By default compression is enabled as it's almost always a win.
-# If you want to save some CPU in the saving child set it to 'no' but
-# the dataset will likely be bigger if you have compressible values or keys.
+# 是否使用LZF算法压缩RDB文件
 rdbcompression yes
 
-# Since version 5 of RDB a CRC64 checksum is placed at the end of the file.
-# This makes the format more resistant to corruption but there is a performance
-# hit to pay (around 10%) when saving and loading RDB files, so you can disable it
-# for maximum performances.
-#
-# RDB files created with checksum disabled have a checksum of zero that will
-# tell the loading code to skip the check.
+# 是否启用RDB文件校验
 rdbchecksum yes
 
 # Enables or disables full sanitation checks for ziplist and listpack etc when
@@ -442,62 +421,21 @@ rdbchecksum yes
 #
 # sanitize-dump-payload no
 
-# The filename where to dump the DB
+# 指定生成的RDB文件的名称
 dbfilename dump.rdb
 
-# Remove RDB files used by replication in instances without persistence
-# enabled. By default this option is disabled, however there are environments
-# where for regulations or other security concerns, RDB files persisted on
-# disk by masters in order to feed replicas, or stored on disk by replicas
-# in order to load them for the initial synchronization, should be deleted
-# ASAP. Note that this option ONLY WORKS in instances that have both AOF
-# and RDB persistence disabled, otherwise is completely ignored.
-#
-# An alternative (and sometimes better) way to obtain the same effect is
-# to use diskless replication on both master and replicas instances. However
-# in the case of replicas, diskless is not always an option.
-rdb-del-sync-files no
-
-# The working directory.
-#
-# The DB will be written inside this directory, with the filename specified
-# above using the 'dbfilename' configuration directive.
-#
-# The Append Only File will also be created inside this directory.
-#
-# Note that you must specify a directory here, not a file name.
+# 指定保存RDB、AOF文件夹的位置
 dir ./
 
 ################################# REPLICATION #################################
 
-# Master-Replica replication. Use replicaof to make a Redis instance a copy of
-# another Redis server. A few things to understand ASAP about Redis replication.
-#
-#   +------------------+      +---------------+
-#   |      Master      | ---> |    Replica    |
-#   | (receive writes) |      |  (exact copy) |
-#   +------------------+      +---------------+
-#
-# 1) Redis replication is asynchronous, but you can configure a master to
-#    stop accepting writes if it appears to be not connected with at least
-#    a given number of replicas.
-# 2) Redis replicas are able to perform a partial resynchronization with the
-#    master if the replication link is lost for a relatively small amount of
-#    time. You may want to configure the replication backlog size (see the next
-#    sections of this file) with a sensible value depending on your needs.
-# 3) Replication is automatic and does not need user intervention. After a
-#    network partition replicas automatically try to reconnect to masters
-#    and resynchronize with them.
-#
-# replicaof <masterip> <masterport>
+# 以副本模式运行时，主节点的ip:port
+# 注：这个选项以命令行模式启动的拓展性更强
+replicaof <masterip> <masterport>
 
-# If the master is password protected (using the "requirepass" configuration
-# directive below) it is possible to tell the replica to authenticate before
-# starting the replication synchronization process, otherwise the master will
-# refuse the replica request.
-#
-# masterauth <master-password>
-#
+# 以副本模式运行时，master节点的密码
+masterauth <master-password>
+
 # However this is not enough if you are using Redis ACLs (for Redis version
 # 6 or greater), and the default user is not capable of running the PSYNC
 # command and/or other commands needed for replication. In this case it's
@@ -524,20 +462,7 @@ dir ./
 #
 replica-serve-stale-data yes
 
-# You can configure a replica instance to accept writes or not. Writing against
-# a replica instance may be useful to store some ephemeral data (because data
-# written on a replica will be easily deleted after resync with the master) but
-# may also cause problems if clients are writing to it because of a
-# misconfiguration.
-#
-# Since Redis 2.6 by default replicas are read-only.
-#
-# Note: read only replicas are not designed to be exposed to untrusted clients
-# on the internet. It's just a protection layer against misuse of the instance.
-# Still a read only replica exports by default all the administrative commands
-# such as CONFIG, DEBUG, and so forth. To a limited extent you can improve
-# security of read only replicas using 'rename-command' to shadow all the
-# administrative / dangerous commands.
+# 副本数据仅可读，不可写
 replica-read-only yes
 
 # Replication SYNC strategy: disk or socket.
@@ -613,46 +538,16 @@ repl-diskless-load disabled
 #
 # repl-ping-replica-period 10
 
-# The following option sets the replication timeout for:
-#
-# 1) Bulk transfer I/O during SYNC, from the point of view of replica.
-# 2) Master timeout from the point of view of replicas (data, pings).
-# 3) Replica timeout from the point of view of masters (REPLCONF ACK pings).
-#
-# It is important to make sure that this value is greater than the value
-# specified for repl-ping-replica-period otherwise a timeout will be detected
-# every time there is low traffic between the master and the replica. The default
-# value is 60 seconds.
-#
-# repl-timeout 60
+# 主节点发送RDB文件给从节点时的超时时间
+repl-timeout 60
 
-# Disable TCP_NODELAY on the replica socket after SYNC?
-#
-# If you select "yes" Redis will use a smaller number of TCP packets and
-# less bandwidth to send data to replicas. But this can add a delay for
-# the data to appear on the replica side, up to 40 milliseconds with
-# Linux kernels using a default configuration.
-#
-# If you select "no" the delay for data to appear on the replica side will
-# be reduced but more bandwidth will be used for replication.
-#
-# By default we optimize for low latency, but in very high traffic conditions
-# or when the master and replicas are many hops away, turning this to "yes" may
-# be a good idea.
+# 是否禁用TCP_NODELAY选项
+# yes: 禁用TCP_NODELAY选项。禁用后，数据无须合并，直接发送至对端
+# no: 启用TCP_NODELAY选项。启用后，TCP协议栈会自动合并较小的数据段，延迟上升。
 repl-disable-tcp-nodelay no
 
-# Set the replication backlog size. The backlog is a buffer that accumulates
-# replica data when replicas are disconnected for some time, so that when a
-# replica wants to reconnect again, often a full resync is not needed, but a
-# partial resync is enough, just passing the portion of data the replica
-# missed while disconnected.
-#
-# The bigger the replication backlog, the longer the replica can endure the
-# disconnect and later be able to perform a partial resynchronization.
-#
-# The backlog is only allocated if there is at least one replica connected.
-#
-# repl-backlog-size 1mb
+# 主节点的复制积压缓冲区，默认1MB
+repl-backlog-size 1mb
 
 # After a master has no connected replicas for some time, the backlog will be
 # freed. The following option configures the amount of seconds that need to
@@ -904,16 +799,8 @@ acllog-max-len 128
 #
 # aclfile /etc/redis/users.acl
 
-# IMPORTANT NOTE: starting with Redis 6 "requirepass" is just a compatibility
-# layer on top of the new ACL system. The option effect will be just setting
-# the password for the default user. Clients will still authenticate using
-# AUTH <password> as usually, or more explicitly with AUTH default <password>
-# if they follow the new protocol: both will work.
-#
-# The requirepass is not compatable with aclfile option and the ACL LOAD
-# command, these will cause requirepass to be ignored.
-#
-# requirepass foobared
+# 设置redis访问密码
+requirepass foobared
 
 # New users are initialized with restrictive permissions by default, via the
 # equivalent of this ACL rule 'off resetkeys -@all'. Starting with Redis 6.2, it
@@ -1232,97 +1119,22 @@ oom-score-adj-values 0 200 800
 disable-thp yes
 
 ############################## APPEND ONLY MODE ###############################
-
-# By default Redis asynchronously dumps the dataset on disk. This mode is
-# good enough in many applications, but an issue with the Redis process or
-# a power outage may result into a few minutes of writes lost (depending on
-# the configured save points).
-#
-# The Append Only File is an alternative persistence mode that provides
-# much better durability. For instance using the default data fsync policy
-# (see later in the config file) Redis can lose just one second of writes in a
-# dramatic event like a server power outage, or a single write if something
-# wrong with the Redis process itself happens, but the operating system is
-# still running correctly.
-#
-# AOF and RDB persistence can be enabled at the same time without problems.
-# If the AOF is enabled on startup Redis will load the AOF, that is the file
-# with the better durability guarantees.
-#
-# Please check https://redis.io/topics/persistence for more information.
-
+# 是否启用AOF，默认关闭
 appendonly no
 
-# The name of the append only file (default: "appendonly.aof")
-
+# AOF文件名称
 appendfilename "appendonly.aof"
 
-# The fsync() call tells the Operating System to actually write data on disk
-# instead of waiting for more data in the output buffer. Some OS will really flush
-# data on disk, some other OS will just try to do it ASAP.
-#
-# Redis supports three different modes:
-#
-# no: don't fsync, just let the OS flush the data when it wants. Faster.
-# always: fsync after every write to the append only log. Slow, Safest.
-# everysec: fsync only one time every second. Compromise.
-#
-# The default is "everysec", as that's usually the right compromise between
-# speed and data safety. It's up to you to understand if you can relax this to
-# "no" that will let the operating system flush the output buffer when
-# it wants, for better performances (but if you can live with the idea of
-# some data loss consider the default persistence mode that's snapshotting),
-# or on the contrary, use "always" that's very slow but a bit safer than
-# everysec.
-#
-# More details please check the following article:
-# http://antirez.com/post/redis-persistence-demystified.html
-#
-# If unsure, use "everysec".
-
-# appendfsync always
+# AOF文件同步策略，可选：always、everysec、no
 appendfsync everysec
-# appendfsync no
 
-# When the AOF fsync policy is set to always or everysec, and a background
-# saving process (a background save or AOF log background rewriting) is
-# performing a lot of I/O against the disk, in some Linux configurations
-# Redis may block too long on the fsync() call. Note that there is no fix for
-# this currently, as even performing fsync in a different thread will block
-# our synchronous write(2) call.
-#
-# In order to mitigate this problem it's possible to use the following option
-# that will prevent fsync() from being called in the main process while a
-# BGSAVE or BGREWRITEAOF is in progress.
-#
-# This means that while another child is saving, the durability of Redis is
-# the same as "appendfsync none". In practical terms, this means that it is
-# possible to lose up to 30 seconds of log in the worst scenario (with the
-# default Linux settings).
-#
-# If you have latency problems turn this to "yes". Otherwise leave it as
-# "no" that is the safest pick from the point of view of durability.
-
+# 在AOF重写期间不使用fsync操作，防止消耗大量的硬盘资源
 no-appendfsync-on-rewrite no
 
-# Automatic rewrite of the append only file.
-# Redis is able to automatically rewrite the log file implicitly calling
-# BGREWRITEAOF when the AOF log size grows by the specified percentage.
-#
-# This is how it works: Redis remembers the size of the AOF file after the
-# latest rewrite (if no rewrite has happened since the restart, the size of
-# the AOF at startup is used).
-#
-# This base size is compared to the current size. If the current size is
-# bigger than the specified percentage, the rewrite is triggered. Also
-# you need to specify a minimal size for the AOF file to be rewritten, this
-# is useful to avoid rewriting the AOF file even if the percentage increase
-# is reached but it is still pretty small.
-#
-# Specify a percentage of zero in order to disable the automatic AOF
-# rewrite feature.
-
+# 当前AOF文件体积与上一次重写后AOF文件空间的比例。超过此比例即可触发重写
 auto-aof-rewrite-percentage 100
+
+# 运行AOF重写时，最小为文件体积。默认64MB，超过此限制即可触发重写
 auto-aof-rewrite-min-size 64mb
 
 # An AOF file may be found to be truncated at the end during the Redis
@@ -1779,7 +1591,8 @@ activerehashing yes
 #
 # The syntax of every client-output-buffer-limit directive is the following:
 #
-# client-output-buffer-limit <class> <hard limit> <soft limit> <soft seconds>
+# client-
+output-buffer-limit <class> <hard limit> <soft limit> <soft seconds>
 #
 # A client is immediately disconnected once the hard limit is reached, or if
 # the soft limit is reached and remains reached for the specified number of
@@ -1800,6 +1613,8 @@ activerehashing yes
 #
 # Both the hard or the soft limit can be disabled by setting them to zero.
 client-output-buffer-limit normal 0 0 0
+
+# 主从复制场景。如果在60s内，缓冲区消耗超过64MB，或者总大小超过超过256MB。主从同步失败
 client-output-buffer-limit replica 256mb 64mb 60
 client-output-buffer-limit pubsub 32mb 8mb 60
 
@@ -2085,6 +1900,4 @@ RDB持久化文件检测和修复工具。
 redis-check-rdb ./test.rdb
 redis-check-aof ./test.aof
 ```
-
-
 

@@ -14,6 +14,18 @@
 - 清理当前数据库：`flushdb`
 - 清理所有数据库：`flushall`
 
+## 持久化
+
+- 手动触发RDB持久化：`bgsave`
+- 获取上一次RDB持久化的时间：`lastsave`
+- 在线修改RDB文件名称：`config set dbfilename {newFileName}`
+- 在线修改保存RDB文件的位置：`config set dir {newDir}`
+- 手动触发AOF重写：`bgrewriteaof`
+
+## 数据同步
+
+- 主从数据同步：`psync{runId} {offset}`
+
 ## 键管理
 
 - 查看所有键：`key *`
