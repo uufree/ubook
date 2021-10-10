@@ -1,0 +1,60 @@
+version: '3'
+services:
+    # data
+    # 为了测试，删掉restart always选项
+    redis-master:
+        image: redis:6.2
+        container_name: redis-master
+        ports:
+        - 6379:6379
+        volumes: 
+        - ./data:/data
+        - ./conf/redis.conf:/etc/redis/redis.conf
+        command: redis-server /etc/redis/redis.conf
+    redis-slave-0:
+        image: redis:6.2
+        container_name: redis-slave-0
+        ports:
+        - 6380:6379
+        command: redis-server --masterauth sensetime --requirepass sensetime --slaveof redis-master 6379
+    redis-slave-1:
+        image: redis:6.2
+        container_name: redis-slave-1
+        ports:
+        - 6381:6379
+        command: --masterauth sensetime --requirepass sensetime --slaveof redis-master 6379
+    
+    # sentinel      
+    redis-sentinel-0:
+        image: redis:6.2
+        container_name: redis-sentinel-0
+        restart: always
+        ports:
+        - 26379:26379
+        volumes: 
+        - ./conf/sentinel-0.conf:/data/conf/redis.conf
+        command: redis-server /data/conf/redis.conf --sentinel
+    redis-sentinel-1:
+        image: redis:6.2
+        container_name: redis-sentinel-1
+        restart: always
+        ports:
+        - 26380:26380
+        volumes: 
+        - ./conf/sentinel-1.conf:/data/conf/redis.conf
+        command: redis-server /data/conf/redis.conf --sentinel
+    redis-sentinel-2:
+        image: redis:6.2
+        restart: always
+        container_name: redis-sentinel-2
+        ports:
+        - 26381:26381
+        volumes: 
+        - ./conf/sentinel-2.conf:/data/conf/redis.conf
+        command: redis-server /data/conf/redis.conf --sentinel
+
+
+
+
+
+

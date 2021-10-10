@@ -18,7 +18,7 @@ class Solution {
     }
 
     if (head->next == nullptr) {
-      return nullptr;
+      return head;
     }
 
     std::vector<int> vec;
@@ -55,10 +55,14 @@ ListNode* construct() {
   return n1;
 }
 
+ListNode* construct1() {
+  ListNode* n1 = new ListNode(1);
+}
+
 int main() {
-  ListNode* head = construct();
+  ListNode* head = construct1();
   Solution sol;
-  ListNode* node = sol.swapNodes(head, 2);
+  ListNode* node = sol.swapNodes(head, 1);
   while (node) {
     std::cout << node->val << std::endl;
     node = node->next;
