@@ -2,6 +2,7 @@
 #include <vector>
 #include <queue>
 #include <functional>
+#include <unistd.h>
 
 using namespace std;
 
@@ -276,11 +277,152 @@ class Solution160 {
   }
 };
 
-int main() {
-  ListNode* l1 = construct({1,2,3,4});
+// 反转链表
+class Solution206 {
+ public:
+  ListNode* reverseList(ListNode* head) {
+    if (head == nullptr || head->next == nullptr) {
+      return head;
+    }
 
-  Solution876 sol;
-  ListNode* res = sol.middleNode(l1);
+    ListNode* p = head;
+    ListNode* prev = nullptr;
+    ListNode* cur = p;
+    while (cur) {
+      ListNode* next = cur->next;
+      cur->next = prev;
+      prev = cur;
+      cur = next;
+    }
+
+    return prev;
+  }
+};
+
+// 反转链表，递归写法
+class Solution206_recursion {
+ public:
+  ListNode* reverse(ListNode* node) {
+    if (node->next == nullptr) {
+      return node;
+    }
+
+    ListNode* last = reverse(node->next);
+    node->next->next = node;
+    node->next = nullptr;
+    return last;
+  }
+  ListNode* reverseList(ListNode* head) {
+    if (head == nullptr || head->next == nullptr) {
+      return head;
+    }
+
+    return reverse(head);
+  }
+};
+
+// 反转链表的前n个节点
+class Solution206_pro_recursion {
+ public:
+  ListNode* second = nullptr;
+
+  ListNode* reverse(ListNode* node, int n) {
+    if (node->next == nullptr || n == 1) {
+      second = node->next;
+      return node;
+    }
+
+    ListNode* last = reverse(node->next, n-1);
+    node->next->next = node;
+    node->next = second;
+    return last;
+  }
+  ListNode* reverseList(ListNode* head, int n) {
+    if (head == nullptr || head->next == nullptr) {
+      return head;
+    }
+
+    if (n == 1 || n == 0) {
+      return head;
+    }
+
+    return reverse(head, n);
+  }
+};
+
+// 反转链表的中间几个节点
+class Solution206_promax_recursion {
+ public:
+  ListNode* second = nullptr;
+  ListNode* reverseN(ListNode* node, int n) {
+    if (node->next == nullptr || n == 1) {
+      second = node->next;
+      return node;
+    }
+
+    ListNode* last = reverseN(node->next, n-1);
+    node->next->next = node;
+    node->next = second;
+    return last;
+  }
+
+  ListNode* reverseList(ListNode* head, int start, int end) {
+    if (head == nullptr || head->next == nullptr) {
+      return head;
+    }
+
+    if (start == 1) {
+      return reverseN(head, end);
+    }
+    head->next = reverseList(head->next, start-1, end-1);
+    return head;
+  }
+};
+
+// K个一组的反转链表
+class Solution25 {
+ public:
+  ListNode* reverse(ListNode* start, ListNode* end) {
+    if (start == end) {
+      return start;
+    }
+
+    ListNode* last = reverse(start->next, end);
+    start->next->next = start;
+    start->next = nullptr;
+    return last;
+  }
+
+  ListNode* reverseKGroup(ListNode* head, int k) {
+    if (head == nullptr || head->next == nullptr) {
+      return head;
+    }
+
+    ListNode* start = head;
+    ListNode* end = head;
+    for (int i=0; i<k-1; i++) {
+      if (end == nullptr) {
+        return head;
+      }
+      end = end->next;
+    }
+
+    if (end == nullptr) {
+      return head;
+    }
+
+    ListNode* newStart = end->next;
+    ListNode* newHead = reverse(start, end);
+    start->next = reverseKGroup(newStart, k);
+    return newHead;
+  }
+};
+
+int main() {
+  ListNode* l1 = construct({1,2,3,4,5});
+
+  Solution25 sol;
+  ListNode* res = sol.reverseKGroup(l1, 3);
   print(res);
 
   return 0;
