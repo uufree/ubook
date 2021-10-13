@@ -1179,25 +1179,13 @@
   lua-time-limit 5000
   
   ################################ REDIS CLUSTER  ###############################
-  
-  # Normal Redis instances can't be part of a Redis Cluster; only nodes that are
-  # started as cluster nodes can. In order to start a Redis instance as a
-  # cluster node enable the cluster support uncommenting the following:
-  #
+  # 是否启用redis cluster模式
   # cluster-enabled yes
   
-  # Every cluster node has a cluster configuration file. This file is not
-  # intended to be edited by hand. It is created and updated by Redis nodes.
-  # Every Redis Cluster node requires a different cluster configuration file.
-  # Make sure that instances running in the same system do not have
-  # overlapping cluster configuration file names.
-  #
+  # cluster配置文件，redis会根据集群信息，对这个配置文件进行更改
   # cluster-config-file nodes-6379.conf
   
-  # Cluster node timeout is the amount of milliseconds a node must be unreachable
-  # for it to be considered in failure state.
-  # Most other internal time limits are a multiple of the node timeout.
-  #
+  # 集群中某个节点的超时时间
   # cluster-node-timeout 15000
   
   # A replica of a failing master will avoid to start a failover if its data
@@ -1312,8 +1300,6 @@
   #
   # cluster-allow-reads-when-down no
   
-  # In order to setup your cluster make sure to read the documentation
-  # available at https://redis.io web site.
   
   ########################## CLUSTER DOCKER/NAT support  ########################
   
@@ -1795,7 +1781,7 @@
   #
   # ignore-warnings ARM64-COW-BUG
   ```
-
+  
 - **sentine.conf**
 
   ```

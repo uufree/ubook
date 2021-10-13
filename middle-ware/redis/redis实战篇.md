@@ -103,6 +103,29 @@
     - 绑定CPU：绑定CPU可用于降低CPU频繁的上下文切换开销。但是，**如果开启了AOF持久化或参与复制（RDB），将导致子进程和父进程共享CPU，导致出现竞争**
   - **内存交换**：部署问题，开启Swap内存交换
 
+### 哨兵
+
+建议：**在部署分布式Redis时，尽量保证机器时间一致**。
+
+1. **节点下线**
+
+   使用`sentinel failover <master-name>`强制主节点下线
+
+2. **节点上线**
+
+   - 从节点：`--slaveof <master host> <master port>`
+   - Sentinel节点：注意配置文件中的`sentinel monitor <master name> <master host> <master port> <quorum>`填写正确
+
+### 集群
+
+建议：**在部署分布式Redis时，尽量保证机器时间一致**。
+
+1. **集群功能特点**
+   - 批量操作支持有限。仅支持具有相同Slot的Key执行批量操作
+   - 仅能在分布在同一台机器上的Key执行事务操作
+   - 不支持多库
+   - 复制结构只支持1层
+
 ## 最佳使用实践
 
 ### 数据库

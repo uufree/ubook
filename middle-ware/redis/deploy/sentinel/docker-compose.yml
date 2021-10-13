@@ -29,6 +29,7 @@ services:
         image: redis:6.2
         container_name: redis-sentinel-0
         restart: always
+        network_mode: host    
         ports:
         - 26379:26379
         volumes: 
@@ -37,6 +38,7 @@ services:
     redis-sentinel-1:
         image: redis:6.2
         container_name: redis-sentinel-1
+        network_mode: host    
         restart: always
         ports:
         - 26380:26380
@@ -47,6 +49,7 @@ services:
         image: redis:6.2
         restart: always
         container_name: redis-sentinel-2
+        network_mode: host    
         ports:
         - 26381:26381
         volumes: 

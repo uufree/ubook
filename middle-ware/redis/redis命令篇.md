@@ -22,9 +22,29 @@
 - 在线修改保存RDB文件的位置：`config set dir {newDir}`
 - 手动触发AOF重写：`bgrewriteaof`
 
-## 数据同步
+## 哨兵
 
-- 主从数据同步：`psync{runId} {offset}`
+> 以下所有操作仅限于sentinel节点
+
+- 获取Sentinel管理所有master节点：`sentinel masters`
+
+- 获取指定master节点的详细信息：`sentinel master <master name>`
+
+- 获取指定master节点的所有slaves：`sentinel slaves <master name>`
+
+- 获取管理指定master节点的sentinels：`sentinel sentinels <master name>`
+
+- 对指定master节点进行强制故障转移：`sentinel failover <master name>`
+
+- 强制刷新sentinel config：`sentinel flushconfig`
+
+- 取消当前sentinel节点对指定master节点的监控：`sentinel remove <master name>`
+
+  > 仅限当前sentinel节点。若需取消监听，需要所有的sentinel都执行remove
+
+- 当前sentinel节点新增对指定master节点的监控：`sentinel monitor <master name> <ip> <port><quorum>`
+
+  > 仅限当前sentinel节点。若需新增监听，需要所有的sentinel都执行monitor
 
 ## 键管理
 
