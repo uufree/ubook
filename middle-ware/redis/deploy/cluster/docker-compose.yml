@@ -1,0 +1,34 @@
+version: '3'
+services:
+    # data
+    # 为了测试，删掉restart always选项
+    redis-cluster-0:
+        image: redis:6.2
+        container_name: redis-cluster-0
+        network_mode: host
+        ports:
+        - 6379:6379
+        volumes: 
+        - ./data/cluster-0:/data
+        - ./conf/cluster-0.conf:/etc/redis/redis.conf
+        command: redis-server /etc/redis/redis.conf
+    redis-cluster-1:
+        image: redis:6.2
+        container_name: redis-cluster-1
+        network_mode: host
+        ports:
+        - 6380:6380
+        volumes: 
+        - ./data/cluster-1:/data
+        - ./conf/cluster-1.conf:/etc/redis/redis.conf
+        command: redis-server /etc/redis/redis.conf
+    redis-cluster-2:
+        image: redis:6.2
+        container_name: redis-cluster-2
+        network_mode: host
+        ports:
+        - 6381:6381
+        volumes: 
+        - ./data/cluster-2:/data
+        - ./conf/cluster-2.conf:/etc/redis/redis.conf
+        command: redis-server /etc/redis/redis.conf
