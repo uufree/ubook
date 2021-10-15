@@ -1857,6 +1857,120 @@
 - `--slave`：把当前客户端模拟成当前Redis节点的从节点，可以用来获取当前Redis节点的更新操作。合理的利用这个选项可以记录当前连接Redis节点的一些更新操作
 - `--cluster <command> [args...] [opts...]`：Cluster Manager command and arguments
 
+### redis-cli --cluster
+
+- `create host1:port1 ... hostN:portN`：创建集群
+
+  - `--cluster-replicas <arg>`：从节点个数
+
+  ```c
+  # 创建单节点集群
+  redis-cli --cluster create 0.0.0.0:6379 0.0.0.0:6380 0.0.0.0:6381
+  
+  # 创建主从节点集群
+  redis-cli --cluster create 0.0.0.0:6379 0.0.0.0:6380 0.0.0.0:6381 0.0.0.0:6382 0.0.0.0:6383 0.0.0.0:6384 --cluster-replicas 1
+  ```
+
+- `check host:port`：检查集群
+
+  - `--cluster-search-multiple-owners`：检查是否有槽被同时分配到了多个节点
+
+  ```c
+  # 检查集群状态
+  redis-cli -a sensetime --cluster check 0.0.0.0:6379
+  
+  # 检查是否有重复分配的槽
+  redis-cli -a sensetime --cluster check 0.0.0.0:6379 --cluster-search-multiple-owners
+  ```
+
+- `info host:port`：查看集群状态
+
+  ```c
+  redis-cli -a sensetime --cluster info 0.0.0.0:6379
+  ```
+
+- `fix host:port`：修复集群
+
+  - `--cluster-search-multiple-owners`：修复槽的重复分配问题
+
+  ```c
+  # 修复集群
+  redis-cli -a sensetime --cluster fix 0.0.0.0:6379
+  
+  # 修复槽的重复分配问题
+  redis-cli -a sensetime --cluster fix 0.0.0.0:6379 --cluster-search-multiple-owners
+  ```
+
+- `reshard host:port`：指定集群的任意一节点进行迁移slot，重新分slots
+
+  - `--cluster-from <arg>`：需要从哪些源节点上迁移slot，可从多个源节点完成迁移，以逗号隔开，传递的是节点的node id，还可以直接传递`--from all`
+  - `--cluster-to <arg>`：slot需要迁移的目的节点的node id，目的节点只能填写一个，不传递该参数的话，则会在迁移过程中提示用户输入
+  - `--cluster-slots <arg>`：需要迁移的slot数量，不传递该参数的话，则会在迁移过程中提示用户输入
+  - `--cluster-yes`：指定迁移时的确认输入
+  - `--cluster-timeout <arg>`：设置migrate命令的超时时间
+  - `--cluster-pipeline <arg>`：定义cluster getkeysinslot命令一次取出的key数量，不传的话使用默认值为10
+  - `--cluster-replace`：是否直接replace到目标节点
+
+  ```c
+  # 注：此处必须使用node id，不能使用ip:port
+  redis-cli -a sensetime --cluster reshard 0.0.0.0:6379 --cluster-from 309145e418b4defd80011a1ad681f849d396fc9a --cluster-to ca8b01ea3629395f3bb1ff8e485bb6041990dba1 --cluster-slots 1000 --cluster-yes
+  ```
+
+- `rebalance host:port`：指定集群的任意一节点进行平衡集群节点slot数量
+
+  - `--cluster-weight <node1=w1...nodeN=wN>`：指定集群节点的权重
+  - `--cluster-use-empty-masters`：设置可以让没有分配slot的主节点参与，默认不允许
+  - `--cluster-timeout <arg>`：设置migrate命令的超时时间
+  - `--cluster-simulate`：拟rebalance操作，不会真正执行迁移操作
+  - `--cluster-pipeline <arg>`：定义cluster getkeysinslot命令一次取出的key数量，默认值为10
+  - `--cluster-threshold <arg>`：迁移的slot阈值超过threshold，执行rebalance操作
+  - `--cluster-replace`：是否直接replace到目标节点
+
+  ```c
+  # 最简洁的reblance命令
+  redis-cli -a sensetime --cluster rebalance 0.0.0.0:6379
+  ```
+
+- `add-node new_host:new_port existing_host:existing_port`：添加节点，把新节点加入到指定的集群，默认添加主节点
+
+  - `--cluster-slave`：新节点作为从节点，默认随机一个主节点
+  - `--cluster-master-id <arg>`：给新节点指定主节点
+
+  ```c
+  # 将6382加入6379已成型的集群
+  # 注：仅添加，但是没有分配slots
+  redis-cli -a sensetime --cluster add-node 0.0.0.0:6382 0.0.0.0:6379
+  
+  # 将6383作为6379的slave加入集群
+  # 注：此处的cluster-master-id可以通过fix命令获取    
+  redis-cli -a sensetime --cluster add-node 0.0.0.0:6383 0.0.0.0:6379 --cluster-slave --cluster-master-id 5ec64003ff4b3f681149cdc7c4a3ab2b835d2072
+  ```
+
+- `del-node host:port node_id`：删除给定的一个节点，成功后关闭该节点服务
+
+  ```c
+  # 删除从节点
+  redis-cli -a sensetime --cluster del-node 0.0.0.0:6383 b82b092317b4f1dd1d89a652b62d340972be482e
+  
+  # 删除无slots的主节点
+  redis-cli -a sensetime --cluster del-node 0.0.0.0:6382 ca8b01ea3629395f3bb1ff8e485bb6041990dba1
+  
+  # 删除有slots的主节点
+  # 注：无法直接删除有slots的主节点    
+  ```
+
+- `call host:port command arg arg .. arg`：在集群的所有节点执行相关命令
+
+- `set-timeout host:port milliseconds`：设置cluster-node-timeout
+
+- `import host:port `：将外部redis数据导入集群
+
+  - `--cluster-from <arg>`：将指定实例的数据导入到集群
+  - `--cluster-copy`：migrate时指定copy
+  - `--cluster-replace`：migrate时指定replace
+
+- `help`
+
 ### redis-server
 
 - `--test-memory <MBs>`：测试当前机器的内存是否够用
