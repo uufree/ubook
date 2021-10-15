@@ -418,12 +418,62 @@ class Solution25 {
   }
 };
 
-int main() {
-  ListNode* l1 = construct({1,2,3,4,5});
+// 回文链表
+// Tips：快慢指针找中点，再反转后半段
+class Solution027 {
+ public:
+  ListNode* reverse(ListNode* head) {
+    if (head == nullptr || head->next == nullptr) {
+      return head;
+    }
 
-  Solution25 sol;
-  ListNode* res = sol.reverseKGroup(l1, 3);
-  print(res);
+    ListNode* prev = nullptr;
+    ListNode* cur = head;
+    while (cur) {
+      ListNode* next = cur->next;
+      cur->next = prev;
+      prev = cur;
+      cur = next;
+    }
+    return prev;
+  }
+
+  bool isPalindrome(ListNode *head) {
+    if (head == nullptr || head->next == nullptr) {
+      return head;
+    }
+
+    ListNode* fast = head;
+    ListNode* slow = head;
+    while (fast && fast->next) {
+      fast = fast->next->next;
+      slow = slow->next;
+    }
+
+    if (fast != nullptr) {
+      slow = slow->next;
+    }
+
+    ListNode* comp1 = reverse(slow);
+    ListNode* comp2 = head;
+    while (comp1) {
+      if (comp1->val == comp2->val) {
+        comp1 = comp1->next;
+        comp2 = comp2->next;
+        continue;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
+};
+
+int main() {
+  ListNode* l1 = construct({1,2,3,3,4,2,1});
+
+  Solution027 sol;
+  std::cout << sol.isPalindrome(l1) << std::endl;
 
   return 0;
 }
