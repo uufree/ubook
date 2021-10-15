@@ -32,3 +32,33 @@ services:
         - ./data/cluster-2:/data
         - ./conf/cluster-2.conf:/etc/redis/redis.conf
         command: redis-server /etc/redis/redis.conf
+    redis-cluster-3:
+        image: redis:6.2
+        container_name: redis-cluster-3
+        network_mode: host
+        ports:
+        - 6382:6382
+        volumes: 
+        - ./data/cluster-3:/data
+        - ./conf/cluster-3.conf:/etc/redis/redis.conf
+        command: redis-server /etc/redis/redis.conf
+    redis-cluster-4:
+        image: redis:6.2
+        container_name: redis-cluster-4
+        network_mode: host
+        ports:
+        - 6383:6383
+        volumes: 
+        - ./data/cluster-4:/data
+        - ./conf/cluster-4.conf:/etc/redis/redis.conf
+        command: redis-server /etc/redis/redis.conf
+    redis-cluster-5:
+        image: redis:6.2
+        container_name: redis-cluster-5
+        network_mode: host
+        ports:
+        - 6384:6384
+        volumes: 
+        - ./data/cluster-5:/data
+        - ./conf/cluster-5.conf:/etc/redis/redis.conf
+        command: redis-server /etc/redis/redis.conf
