@@ -4,6 +4,50 @@
 
 ## 最佳运维实践
 
+### Linux系统
+
+- `vm.overcommit_memory`：建议配置为1，为Fork留足空间
+
+  - 0：内核不允许使用超量内存。
+  - 1：内核允许使用超量内存。
+
+  ```bash
+  echo "vm.overcommit_memory=1" >> /etc/sysctl.conf
+  sysctl vm.overcommit_memory=1
+  ```
+
+- `swappiness`：swap空间
+
+  ![image-20211017181816705](assets/image-20211017181816705.png)
+
+  ```bash
+  echo vm.swappiness={bestvalue} >> /etc/sysctl.conf
+  ```
+
+- `THP`：大内存页（2MB），默认开启。为了防止Fork过慢，建议关闭。
+
+  ```bash
+  echo never > /sys/kernel/mm/transparent_hugepage/enabled
+  ```
+
+- `NTP`：宿主机时间同步配置
+
+  ```bash
+  0 * * * * /usr/sbin/ntpdate ntp.xx.com > /dev/null 2>&1
+  ```
+
+- 增加进程的文件描述符数量
+
+  ```bash
+  ulimit –Sn {max-open-files}
+  ```
+
+- `TCP backlog`
+
+  ```bash
+  echo 511 > /proc/sys/net/core/somaxconn
+  ```
+
 ### 慢查询日志
 
 - 配置项：
@@ -125,67 +169,121 @@
    - 仅能在分布在同一台机器上的Key执行事务操作
    - 不支持多库
    - 复制结构只支持1层
+   
+2. 集群模式如何支持读写分离？
+
+   **集群模式默认仅支持在主节点上进行读写。**多个主节点已经可以从容的拓展读写能力，无需再使用从节点进行读分压。启用从节点读可能引入：复制延迟、数据过期等问题。
 
 ## 最佳使用实践
 
-### 数据库
+### 缓存
 
-- Redis Cluster仅使用0号数据库
-- Redis是单线程架构，使用多个数据库无明显的性能提升
-- 0号数据库的慢查询会影响其他数据库的查询效率
-- 部分Redis Client不支持多数据库
+1. **为什么使用缓存**？
 
-### Lua脚本
+   - 读写加速，提升用户体验
 
-- Lua脚本在Redis中是原子执行的，执行过程中不会插入其他命令
-  - Tips：假设Lua脚本中有5步，中间步骤执行失败怎么办？
-- 可根据业务自定义命令，并将这些命令常驻内存，实现复用效果
-- 可以将多条命令一次性打包，有效的减少网络开销
+   - 降低后端负载
+   
+    但是会引两个问题：
+   
+   - 数据不一致。缓存层与数据层存在数据不一致的可能，与**更新策略**相关
+   - 引入缓存组件，提升运维成本
 
-## 基础数据类型
+2. **缓存更新策略最佳实践**
 
-### 字符串类型的使用场景
+![image-20211017180040197](assets/image-20211017180040197.png)
 
-- 缓存
+- 低一致性业务：配置最大内存和淘汰策略，需要的话，再加上定时即可
+- 高一致性业务：**超时剔除 + 主动更新**
 
-  ```java
-  UserInfo getUserInfo(long id) {
-  	userRedisKey = "user:info:" + id
-  	value = redis.get(userRedisKey);
-  	
-  	UserInfo userInfo;
-  	if (value != null) {
-  		userInfo = deserialize(value);
-  	} else {
-  		userInfo = mysql.get(id);
-  		if (userInfo != null)
-  			redis.setex(userRedisKey, 3600, serialize(userInfo));
-  	}
-  	return userInfo;
-  }
-  ```
+3. 什么是**缓存穿透**？怎么优化？
 
-- 计数
+   **缓存穿透将导致不存在的数据每次请求都要到存储层去查询，失去了缓存保护后端存储的意义。**
 
-  ```java
-  long incrVideoCounter(long id) {
-  	key = "video:playCount:" + id;
-  	return redis.incr(key);
-  }
-  ```
+   两种解决方式：
 
-- 限速
+   - 缓存空对象
 
-  ```java
-  phoneNum = "138xxxxxxxx";
-  key = "shortMsg:limit:" + phoneNum;
+   ![image-20211017180452627](assets/image-20211017180452627.png)
+
+   - 布隆过滤器拦截
+
+     > 如果布隆过滤器认为这个值不存在，那么这个值就一定不存在
+     >
+     > 如果布控过滤去认为这个值存在，那么这个值就一定存在
+
+   ![image-20211017180721486](assets/image-20211017180721486.png)
+
+4. 什么是**缓存雪崩**，怎么优化？
+
+   由于缓存层承载着大量请求，有效地保护了存储层，但是如果缓存层由于某些原因不能提供服务，于是所有的请
+   求都会达到存储层，存储层的调用量会暴增，造成存储层也会级联宕机的情况。解决方式：
+
+   - Redis自身：存储服务高可用
+   - 架构级别：限流+熔断
+
+![image-20211017181126955](assets/image-20211017181126955.png)
+
+### 分布式锁
+
+> **原子操作**：不会被线程调度机制打断的操作，不会被switch context中断
+
+- 单实例锁
+
+  ```bash
+  // acquire lock
+  set lock {random-number} ex 5 nx
+  ....
   
-  // SET key value EX 60 NX
-  isExists = redis.set(key,1,"EX 60","NX");
-  if(isExists != null || redis.incr(key) <=5){
-  	// 通过
-  }else{
-  	// 限速
-  }
+  // release lock
+  if  equal random-number:
+  	del lock
   ```
+
+  使用**random number**是因为考虑到这样一种情形：
+
+  1. 线程A持有锁超过了超时时间的限制
+  2. 锁过期后线程B获取了这把锁
+  3. 线程A的任务结束。如果没有用**random number**去判断，那么线程A会直接删除这把锁，导致线程C直接拿到锁
+
+  但是引入**random number**后，因为redis不支持delifequal这样的命令，所以需要用Lua脚本封装一个**delifequal**的原子操作：
+
+  ```bash
+  if redis.call("get",KEYS[1]) == ARGV[1] then
+  	return redis.call("del",KEYS[1])
+  else
+  	return 0
+  end
+  ```
+
+- RedLock（多实例锁）
+
+  TODO...
+
+- **锁冲突的解决方式**：
+  1. 抛出异常，由业务代码做**退避重试**
+
+### 特定业务场景
+
+1. C端，**统计需求**：统计用户签到记录
+
+   可以使用**Bitmap**统计用户365天的登录情况，有效节省用户空间
+
+2. C端，**统计需求**：统计网页页面的PV和UV。
+
+   > PV：每个网页的访问次数，统计总访问量
+   >
+   > UV：每个网页的独立访问（一个用户访问多次也只能算一次），统计用户量
+
+   - PV：每个网页一个计数机，使用`incrby`累加即可
+   - UV：
+     - 方案1：每个网页一个Set结构，访问到达之后，直接往Set中加入UserID即可
+     - 方案2：使用**HyperLogLog**对网页访问量进行计数。此种计数方式存在误差，大约0.81%。但非常非常节省空间
+   
+3. C/B端，**去重需求**：图片MD5去重、防止大量伪造的RequestID打穿Mysql
+
+   - 方案1：使用Set过滤重复的请求。精确，但是占用空间过大
+   - 方案2：使用**Bloom Filter**过滤重复的请求。有误差，但是占用空间小。
+
+
 

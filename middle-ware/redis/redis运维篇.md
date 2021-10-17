@@ -120,67 +120,20 @@
   
   ################################## NETWORK #####################################
   
-  # By default, if no "bind" configuration directive is specified, Redis listens
-  # for connections from all available network interfaces on the host machine.
-  # It is possible to listen to just one or multiple selected interfaces using
-  # the "bind" configuration directive, followed by one or more IP addresses.
-  # Each address can be prefixed by "-", which means that redis will not fail to
-  # start if the address is not available. Being not available only refers to
-  # addresses that does not correspond to any network interfece. Addresses that
-  # are already in use will always fail, and unsupported protocols will always BE
-  # silently skipped.
-  #
-  # Examples:
-  #
-  # bind 192.168.1.100 10.0.0.1     # listens on two specific IPv4 addresses
-  # bind 127.0.0.1 ::1              # listens on loopback IPv4 and IPv6
-  # bind * -::*                     # like the default, all available interfaces
-  #
-  # ~~~ WARNING ~~~ If the computer running Redis is directly exposed to the
-  # internet, binding to all the interfaces is dangerous and will expose the
-  # instance to everybody on the internet. So by default we uncomment the
-  # following bind directive, that will force Redis to listen only on the
-  # IPv4 and IPv6 (if available) loopback interface addresses (this means Redis
-  # will only be able to accept client connections from the same host that it is
-  # running on).
-  #
-  # IF YOU ARE SURE YOU WANT YOUR INSTANCE TO LISTEN TO ALL THE INTERFACES
-  # JUST COMMENT OUT THE FOLLOWING LINE.
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # bind
   bind 127.0.0.1 -::1
   
-  # Protected mode is a layer of security protection, in order to avoid that
-  # Redis instances left open on the internet are accessed and exploited.
-  #
-  # When protected mode is on and if:
-  #
-  # 1) The server is not binding explicitly to a set of addresses using the
-  #    "bind" directive.
-  # 2) No password is configured.
-  #
-  # The server only accepts connections from clients connecting from the
-  # IPv4 and IPv6 loopback addresses 127.0.0.1 and ::1, and from Unix domain
-  # sockets.
-  #
-  # By default protected mode is enabled. You should disable it only if
-  # you are sure you want clients from other hosts to connect to Redis
-  # even if no authentication is configured, nor a specific set of interfaces
-  # are explicitly listed using the "bind" directive.
-  protected-mode yes
-  
-  # Accept connections on the specified port, default is 6379 (IANA #815344).
-  # If port 0 is specified Redis will not listen on a TCP socket.
+  # port
   port 6379
+  
+  # 默认启动
+  # 当没有显示的绑定到一组地址，并且没有配置密码。此时，仅允许127.0.0.1 client访问。有效隔绝了来自互联网的攻击
+  protected-mode yes
   
   # TCP监听队列长度。默认511。建议同步此配置与/proc/sys/net/core/somaxconn中的配置相同
   tcp-backlog 511
   
-  # Unix socket.
-  #
-  # Specify the path for the Unix socket that will be used to listen for
-  # incoming connections. There is no default, so Redis will not listen
-  # on a unix socket when not specified.
-  #
+  # 几乎不使用。
   # unixsocket /run/redis.sock
   # unixsocketperm 700
   
@@ -191,217 +144,30 @@
   # 在TCP这一层进行keepalive检测，防止大量死连接占用系统资源。设置为0，意味着不进行keepalive检测
   tcp-keepalive 300
   
-  ################################# TLS/SSL #####################################
-  
-  # By default, TLS/SSL is disabled. To enable it, the "tls-port" configuration
-  # directive can be used to define TLS-listening ports. To enable TLS on the
-  # default port, use:
-  #
-  # port 0
-  # tls-port 6379
-  
-  # Configure a X.509 certificate and private key to use for authenticating the
-  # server to connected clients, masters or cluster peers.  These files should be
-  # PEM formatted.
-  #
-  # tls-cert-file redis.crt 
-  # tls-key-file redis.key
-  #
-  # If the key file is encrypted using a passphrase, it can be included here
-  # as well.
-  #
-  # tls-key-file-pass secret
-  
-  # Normally Redis uses the same certificate for both server functions (accepting
-  # connections) and client functions (replicating from a master, establishing
-  # cluster bus connections, etc.).
-  #
-  # Sometimes certificates are issued with attributes that designate them as
-  # client-only or server-only certificates. In that case it may be desired to use
-  # different certificates for incoming (server) and outgoing (client)
-  # connections. To do that, use the following directives:
-  #
-  # tls-client-cert-file client.crt
-  # tls-client-key-file client.key
-  #
-  # If the key file is encrypted using a passphrase, it can be included here
-  # as well.
-  #
-  # tls-client-key-file-pass secret
-  
-  # Configure a DH parameters file to enable Diffie-Hellman (DH) key exchange:
-  #
-  # tls-dh-params-file redis.dh
-  
-  # Configure a CA certificate(s) bundle or directory to authenticate TLS/SSL
-  # clients and peers.  Redis requires an explicit configuration of at least one
-  # of these, and will not implicitly use the system wide configuration.
-  #
-  # tls-ca-cert-file ca.crt
-  # tls-ca-cert-dir /etc/ssl/certs
-  
-  # By default, clients (including replica servers) on a TLS port are required
-  # to authenticate using valid client side certificates.
-  #
-  # If "no" is specified, client certificates are not required and not accepted.
-  # If "optional" is specified, client certificates are accepted and must be
-  # valid if provided, but are not required.
-  #
-  # tls-auth-clients no
-  # tls-auth-clients optional
-  
-  # By default, a Redis replica does not attempt to establish a TLS connection
-  # with its master.
-  #
-  # Use the following directive to enable TLS on replication links.
-  #
-  # tls-replication yes
-  
-  # By default, the Redis Cluster bus uses a plain TCP connection. To enable
-  # TLS for the bus protocol, use the following directive:
-  #
-  # tls-cluster yes
-  
-  # By default, only TLSv1.2 and TLSv1.3 are enabled and it is highly recommended
-  # that older formally deprecated versions are kept disabled to reduce the attack surface.
-  # You can explicitly specify TLS versions to support.
-  # Allowed values are case insensitive and include "TLSv1", "TLSv1.1", "TLSv1.2",
-  # "TLSv1.3" (OpenSSL >= 1.1.1) or any combination.
-  # To enable only TLSv1.2 and TLSv1.3, use:
-  #
-  # tls-protocols "TLSv1.2 TLSv1.3"
-  
-  # Configure allowed ciphers.  See the ciphers(1ssl) manpage for more information
-  # about the syntax of this string.
-  #
-  # Note: this configuration applies only to <= TLSv1.2.
-  #
-  # tls-ciphers DEFAULT:!MEDIUM
-  
-  # Configure allowed TLSv1.3 ciphersuites.  See the ciphers(1ssl) manpage for more
-  # information about the syntax of this string, and specifically for TLSv1.3
-  # ciphersuites.
-  #
-  # tls-ciphersuites TLS_CHACHA20_POLY1305_SHA256
-  
-  # When choosing a cipher, use the server's preference instead of the client
-  # preference. By default, the server follows the client's preference.
-  #
-  # tls-prefer-server-ciphers yes
-  
-  # By default, TLS session caching is enabled to allow faster and less expensive
-  # reconnections by clients that support it. Use the following directive to disable
-  # caching.
-  #
-  # tls-session-caching no
-  
-  # Change the default number of TLS sessions cached. A zero value sets the cache
-  # to unlimited size. The default size is 20480.
-  #
-  # tls-session-cache-size 5000
-  
-  # Change the default timeout of cached TLS sessions. The default timeout is 300
-  # seconds.
-  #
-  # tls-session-cache-timeout 60
-  
   ################################# GENERAL #####################################
   
-  # By default Redis does not run as a daemon. Use 'yes' if you need it.
-  # Note that Redis will write a pid file in /var/run/redis.pid when daemonized.
-  # When Redis is supervised by upstart or systemd, this parameter has no impact.
+  # 是否以守护进程启动服务
   daemonize no
   
-  # If you run Redis from upstart or systemd, Redis can interact with your
-  # supervision tree. Options:
-  #   supervised no      - no supervision interaction
-  #   supervised upstart - signal upstart by putting Redis into SIGSTOP mode
-  #                        requires "expect stop" in your upstart job config
-  #   supervised systemd - signal systemd by writing READY=1 to $NOTIFY_SOCKET
-  #                        on startup, and updating Redis status on a regular
-  #                        basis.
-  #   supervised auto    - detect upstart or systemd method based on
-  #                        UPSTART_JOB or NOTIFY_SOCKET environment variables
-  # Note: these supervision methods only signal "process is ready."
-  #       They do not enable continuous pings back to your supervisor.
-  #
-  # The default is "no". To run under upstart/systemd, you can simply uncomment
-  # the line below:
-  #
-  # supervised auto
-  
-  # If a pid file is specified, Redis writes it where specified at startup
-  # and removes it at exit.
-  #
-  # When the server runs non daemonized, no pid file is created if none is
-  # specified in the configuration. When the server is daemonized, the pid file
-  # is used even if not specified, defaulting to "/var/run/redis.pid".
-  #
-  # Creating a pid file is best effort: if Redis is not able to create it
-  # nothing bad happens, the server will start and run normally.
-  #
-  # Note that on modern Linux systems "/run/redis.pid" is more conforming
-  # and should be used instead.
+  # 进程pid文件位置
   pidfile /var/run/redis_6379.pid
   
-  # Specify the server verbosity level.
-  # This can be one of:
-  # debug (a lot of information, useful for development/testing)
-  # verbose (many rarely useful info, but not a mess like the debug level)
-  # notice (moderately verbose, what you want in production probably)
-  # warning (only very important / critical messages are logged)
+  # 日志级别，可选：debug | verbose | notice | warning
   loglevel notice
   
-  # Specify the log file name. Also the empty string can be used to force
-  # Redis to log on the standard output. Note that if you use standard
-  # output for logging but daemonize, logs will be sent to /dev/null
+  # 不指定，则默认输出至终端
   logfile ""
   
-  # To enable logging to the system logger, just set 'syslog-enabled' to yes,
-  # and optionally update the other syslog parameters to suit your needs.
-  # syslog-enabled no
-  
-  # Specify the syslog identity.
-  # syslog-ident redis
-  
-  # Specify the syslog facility. Must be USER or between LOCAL0-LOCAL7.
-  # syslog-facility local0
-  
-  # To disable the built in crash log, which will possibly produce cleaner core
-  # dumps when they are needed, uncomment the following:
-  #
-  # crash-log-enabled no
-  
-  # To disable the fast memory check that's run as part of the crash log, which
-  # will possibly let redis terminate sooner, uncomment the following:
-  #
-  # crash-memcheck-enabled no
-  
-  # Set the number of databases. The default database is DB 0, you can select
-  # a different one on a per-connection basis using SELECT <dbid> where
-  # dbid is a number between 0 and 'databases'-1
+  # 可用数据库
   databases 16
   
-  # By default Redis shows an ASCII art logo only when started to log to the
-  # standard output and if the standard output is a TTY and syslog logging is
-  # disabled. Basically this means that normally a logo is displayed only in
-  # interactive sessions.
-  #
-  # However it is possible to force the pre-4.0 behavior and always show a
-  # ASCII art logo in startup logs by setting the following option to yes.
+  # 是否每次启动时展示redis logo
   always-show-logo no
   
-  # By default, Redis modifies the process title (as seen in 'top' and 'ps') to
-  # provide some runtime information. It is possible to disable this and leave
-  # the process name as executed by setting the following to no.
+  # 是否需要redis修改top命令或者ps命令中的进程名称
   set-proc-title yes
   
-  # When changing the process title, Redis uses the following template to construct
-  # the modified title.
-  #
-  # Template variables are specified in curly brackets. The following variables are
-  # supported:
-  #
+  # 进程名称模板
   # {title}           Name of process as executed if parent, or type of child process.
   # {listen-addr}     Bind address or '*' followed by TCP or TLS port listening on, or
   #                   Unix socket if only that's available.
@@ -413,27 +179,12 @@
   #
   proc-title-template "{title} {listen-addr} {server-mode}"
   
+  # RDB配置项
   ################################ SNAPSHOTTING  ################################
-  
-  # Save the DB to disk.
-  #
-  # save <seconds> <changes>
-  #
-  # Redis will save the DB if both the given number of seconds and the given
-  # number of write operations against the DB occurred.
-  #
-  # Snapshotting can be completely disabled with a single empty string argument
-  # as in following example:
-  #
-  # save ""
-  #
-  # Unless specified otherwise, by default Redis will save the DB:
-  #   * After 3600 seconds (an hour) if at least 1 key changed
-  #   * After 300 seconds (5 minutes) if at least 100 keys changed
-  #   * After 60 seconds if at least 10000 keys changed
-  #
-  # You can set these explicitly by uncommenting the three following lines.
-  #
+  # RDB启动条件
+  # a. 3600s内，至少一个1个key发生了变更
+  # b. 300s内，至少500个key发生了变更
+  # c. 60s内，至少10000个key发生了变更
   # save 3600 1
   # save 300 100
   # save 60 10000
@@ -447,21 +198,6 @@
   # 是否启用RDB文件校验
   rdbchecksum yes
   
-  # Enables or disables full sanitation checks for ziplist and listpack etc when
-  # loading an RDB or RESTORE payload. This reduces the chances of a assertion or
-  # crash later on while processing commands.
-  # Options:
-  #   no         - Never perform full sanitation
-  #   yes        - Always perform full sanitation
-  #   clients    - Perform full sanitation only for user connections.
-  #                Excludes: RDB files, RESTORE commands received from the master
-  #                connection, and client connections which have the
-  #                skip-sanitize-payload ACL flag.
-  # The default should be 'clients' but since it currently affects cluster
-  # resharding via MIGRATE, it is temporarily set to 'no' by default.
-  #
-  # sanitize-dump-payload no
-  
   # 指定生成的RDB文件的名称
   dbfilename dump.rdb
   
@@ -471,36 +207,15 @@
   ################################# REPLICATION #################################
   
   # 以副本模式运行时，主节点的ip:port
-  # 注：这个选项以命令行模式启动的拓展性更强
+  # 注：这个选项以命令行模式：--slaveof 启动的拓展性更强
   replicaof <masterip> <masterport>
   
   # 以副本模式运行时，master节点的密码
   masterauth <master-password>
   
-  # However this is not enough if you are using Redis ACLs (for Redis version
-  # 6 or greater), and the default user is not capable of running the PSYNC
-  # command and/or other commands needed for replication. In this case it's
-  # better to configure a special user to use with replication, and specify the
-  # masteruser configuration as such:
-  #
-  # masteruser <username>
-  #
-  # When masteruser is specified, the replica will authenticate against its
-  # master using the new AUTH form: AUTH <username> <password>.
-  
-  # When a replica loses its connection with the master, or when the replication
-  # is still in progress, the replica can act in two different ways:
-  #
-  # 1) if replica-serve-stale-data is set to 'yes' (the default) the replica will
-  #    still reply to client requests, possibly with out of date data, or the
-  #    data set may just be empty if this is the first synchronization.
-  #
-  # 2) If replica-serve-stale-data is set to 'no' the replica will reply with
-  #    an error "SYNC with master in progress" to all commands except:
-  #    INFO, REPLICAOF, AUTH, PING, SHUTDOWN, REPLCONF, ROLE, CONFIG, SUBSCRIBE,
-  #    UNSUBSCRIBE, PSUBSCRIBE, PUNSUBSCRIBE, PUBLISH, PUBSUB, COMMAND, POST,
-  #    HOST and LATENCY.
-  #
+  # 如果副本与主节点失联：
+  # yes：照常处理读命令
+  # no：提示与主节点同步中，拒绝所有请求
   replica-serve-stale-data yes
   
   # 副本数据仅可读，不可写
@@ -1185,7 +900,10 @@
   # cluster配置文件，redis会根据集群信息，对这个配置文件进行更改
   # cluster-config-file nodes-6379.conf
   
-  # 集群中某个节点的超时时间
+  # 集群中某个节点的超时时间（15s）
+  # 1. 判定一个节点的失联事件
+  # 2. 决定故障转移时间
+  # 3. 决定消息发送频率（cluster-node-timeout / 2）
   # cluster-node-timeout 15000
   
   # A replica of a failing master will avoid to start a failover if its data
@@ -1261,17 +979,9 @@
   #
   # cluster-allow-replica-migration yes
   
-  # By default Redis Cluster nodes stop accepting queries if they detect there
-  # is at least a hash slot uncovered (no available node is serving it).
-  # This way if the cluster is partially down (for example a range of hash slots
-  # are no longer covered) all the cluster becomes, eventually, unavailable.
-  # It automatically returns available as soon as all the slots are covered again.
-  #
-  # However sometimes you want the subset of the cluster which is working,
-  # to continue to accept queries for the part of the key space that is still
-  # covered. In order to do so, just set the cluster-require-full-coverage
-  # option to no.
-  #
+  # 当发生故障转移时，如果存在slots不可用
+  # yes：整个集群不可用
+  # no：与转移槽相关的命令不可用
   # cluster-require-full-coverage yes
   
   # This option, when set to yes, prevents replicas from trying to failover its

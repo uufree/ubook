@@ -5,8 +5,12 @@
 ## 全局命令
 
 - 登录验证：`auth password`
+
 - 查看当前库的键总数：`dbsize`
-- 查看当前系统状况：`info memory`
+
+- 查看当前系统状况：`info section`
+
+  ![image-20211017183300638](assets/image-20211017183300638.png)
 
 ## 数据库管理
 
