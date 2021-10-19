@@ -4,67 +4,7 @@
 
 ## 部署
 
-### docker-compose
-
-- 单机
-
-  ```yaml
-  version: '3'
-  services:
-      redis:
-          image: registry.sensetime.com/sensemedia/redis:4.0-alpine3.8
-          container_name: redis
-          restart: always
-          ports:
-          - 6379:6379
-          volumes: 
-          - /home/sensetime/test/redis/data:/data
-          - /home/sensetime/test/redis/conf/redis.conf:/etc/redis/redis.conf
-          command: redis-server /etc/redis/redis.conf
-  ```
-
-- 副本
-
-  ```yaml
-  version: '3'
-  services:
-      redis-master:
-          image: redis:4.0
-          container_name: redis-master
-          restart: always
-          ports:
-          - 6379:6379
-          volumes: 
-          - /home/uuchen/test/redis/data:/data
-          - /home/uuchen/test/redis/conf/redis.conf:/etc/redis/redis.conf
-          command: redis-server /etc/redis/redis.conf
-      redis-slave-0:
-          image: redis:4.0
-          container_name: redis-slave-0
-          restart: always
-          ports:
-          - 6380:6379
-          command: redis-server --masterauth sensetime --requirepass sensetime --slaveof redis-master 6379
-      redis-slave-1:
-          image: redis:4.0
-          container_name: redis-slave-1
-          restart: always
-          ports:
-          - 6381:6379
-          command: --masterauth sensetime --requirepass sensetime --slaveof redis-slave-0 6379
-  
-  
-  ```
-
-- 哨兵
-
-- 集群
-
-### k8s
-
-```
-...
-```
+详见deploy文件夹。
 
 ## 配置
 

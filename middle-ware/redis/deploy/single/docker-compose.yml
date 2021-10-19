@@ -9,4 +9,5 @@ services:
         volumes: 
         - ./data:/data
         - ./conf/redis.conf:/etc/redis/redis.conf
-        command: redis-server /etc/redis/redis.conf
+        - ./3rd-modules:/modules
+        command: redis-server /etc/redis/redis.conf --loadmodule /modules/redisbloom.so --loadmodule /modules/libredis_cell.so

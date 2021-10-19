@@ -263,6 +263,26 @@ HyperLogLog是一种基数算法，底层使用字符串类型。可以利用极
 - 计算数量：`pfadd key [key1 key2 ... ]`
 - 合并：`pfmerge destKey sourceKey [sourceKey1 sourceKey2 ... ]`
 
+### BloomFilter
+
+- 创建一个误判率为0.1%、可存储10000个元素的布隆过滤器：`bf.reserve my_cmd_filter 0.001 1000`
+- 新增元素：`bf.add name uuchen`
+- 批量新增元素：`bf.madd name uuchen ppn`
+- 判断元素：`bf.exists name uuchen`
+- 批量判断元素：`bf.exists name uuchen ppn`
+
+### Cell（限流）
+
+```shell
+# 创建一个初始容量为15，每60s最多30c次的漏斗
+> cl.throttle laoqian:reply 15 30 60
+1) (integer) 0  # 0 表示允许,1 表示拒绝
+2) (integer) 15 # 漏斗容量 capacity
+3) (integer) 14 # 漏斗剩余空间 left_quota
+4) (integer) -1 # 如果拒绝了,需要多长时间后再试(漏斗有空间了,单位秒)
+5) (integer) 2  # 多长时间后,漏斗完全空出来(left_quota==capacity,单位秒)
+```
+
 ### GEO
 
 Redis提供GEO（地理位置定位）功能，支持存储地理位置信息。**GEO底层数据结构为zset**。
