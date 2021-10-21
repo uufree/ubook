@@ -56,13 +56,13 @@
   - 注：**此命令存在阻塞风险**
 - 检查键是否存在：`exists key`
 - 删除键：`del key1 key2 ...`
+- 惰性删除键：`unlink key1 key2 ...`
 - 查看键过期时间：`ttl key`
   - 返回>0的整数：键剩余的过期时间
   - 返回-1：键没有设置过期时间
   - 返回-2：键不存在
 - 查看键的数据结构类型：`type key`
 - 查看键的内部编码：`object encoding key `
-
 - 键重命名命令：`renamenx key newKey`
   - 注：仅在newKey不存在的情况下，才能重命名成功
 - 随机返回一个key：`randomkey`
@@ -76,6 +76,20 @@
   - match pattern：可选参数。模式匹配。
   - count number：可选参数。明确表示每次要遍历的键的个数。默认值是10。
 
+## 事务
+
+> **Redis中的事务不具有原子性，当中间的某条命令执行失败后，后续的命令还将继续执行**。
+
+- 开启事务：`multi`
+
+- 提交事务：`exec`
+
+- 丢弃事务：`discard`
+
+- 事务启动前，关注事务变量：`watch`
+
+  > 执行事务之前，可以用watch关注一个或多个变量。如果在提交exec之前，这些变量出现了变更，事务将提交失败
+
 ## 客户端管理
 
 - 客户端列表：`client list`。其中有几个比较重要的字段：
@@ -88,7 +102,6 @@
 - Kill客户端：`client kill [ip:port] [ID client-id]`
 - 阻塞客户端：`client pause timeout( 毫秒 )`
 - 监控当前正在执行的命令：`monitor`
-- 
 
 ## 基础数据类型
 
