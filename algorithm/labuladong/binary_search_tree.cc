@@ -444,10 +444,21 @@ class Solution236 {
       return nullptr;
     }
 
-    if (root->val)
+    if (root == p || root == q) {
+      return root;
+    }
 
-    lowestCommonAncestor(root->left, p, q);
-    lowestCommonAncestor(root->right, p, q);
+    TreeNode* left = lowestCommonAncestor(root->left, p, q);
+    TreeNode* right = lowestCommonAncestor(root->right, p, q);
+    if (left != nullptr && right != nullptr) {
+      return root;
+    }
+
+    if (left == nullptr && right == nullptr) {
+      return nullptr;
+    }
+
+    return left == nullptr ? right : left;
   }
 };
 
