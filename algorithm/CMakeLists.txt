@@ -14,6 +14,7 @@ link_directories(/usr/local/lib)
 file(GLOB SRC_FILES cmd/*.cc)
 file(GLOB SRC_ARRAY array/*.cc)
 file(GLOB SRC_LIST list/*.cc)
+file(GLOB SRC_TREE tree/*.cc)
 file(GLOB SRC_LBLD labuladong/*.cc)
 
-add_executable(main ${SRC_FILES} ${SRC_ARRAY} ${SRC_LIST} ${SRC_LBLD})
+add_executable(main ${SRC_FILES} ${SRC_ARRAY} ${SRC_LIST} ${SRC_LBLD} ${SRC_TREE})
