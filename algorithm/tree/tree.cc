@@ -219,33 +219,168 @@ class Solution99 {
       }
     }
 
-    for (int i=0; i<nodes.size(); i++) {
-      if (nodes[i]->val > n1->val) {
+    for (int i=nodes.size()-1; i>0; i--) {
+      if (nodes[i]->val < nodes[i-1]->val) {
         n2 = nodes[i];
         break;
       }
     }
-
-    if (n2 == nullptr) {
-      n2 = nodes.back();
-    }
-
-    for (auto node : nodes) {
-      std::cout << "out: " << node->val << std::endl;
-    }
-
-    std::cout << "in: " << n1->val << std::endl;
-    std::cout << "in: " << n2->val << std::endl;
 
     // recover
     swap(n1->val, n2->val);
   }
 };
 
+class Solution100 {
+ public:
+  void construct(TreeNode** p1, TreeNode** p2) {
+    TreeNode* n1 = new TreeNode(1);
+    TreeNode* n2 = new TreeNode(2);
+    n1->left = n2;
+    *p1 = n1;
+
+    TreeNode* m1 = new TreeNode(1);
+    TreeNode* m2 = new TreeNode(2);
+    m1->right = m2;
+    *p2 = m1;
+  }
+
+  bool isSameTree(TreeNode* p, TreeNode* q) {
+    if (p == nullptr && q == nullptr) {
+      return true;
+    }
+
+    if (p == nullptr && q != nullptr) {
+      return false;
+    }
+
+    if (p != nullptr && q == nullptr) {
+      return false;
+    }
+
+    bool midSame = p->val == q->val ? true : false;
+    return midSame && isSameTree(p->left, q->left) && isSameTree(p->right, q->right);
+  }
+};
+
+class Solution101 {
+ public:
+  bool check(TreeNode *p, TreeNode *q) {
+    if (!p && !q) return true;
+    if (!p || !q) return false;
+    return p->val == q->val && check(p->left, q->right) && check(p->right, q->left);
+  }
+
+  bool isSymmetric(TreeNode* root) {
+    return check(root, root);
+  }
+};
+
+class Solution102 {
+ public:
+  vector<vector<int>> levelOrder(TreeNode* root) {
+    std::vector<std::vector<int>> result;
+    std::vector<std::vector<TreeNode*>> nodes;
+    if (root == nullptr) {
+      return result;
+    }
+
+    nodes.push_back(vector<TreeNode*>{root});
+    result.push_back(vector<int>{root->val});
+    while (!nodes.back().empty()) {
+      std::vector<int> temp;
+      std::vector<TreeNode*> nodesTemp;
+      for (auto node : nodes.back()) {
+        if (node->left) {
+          temp.push_back(node->left->val);
+          nodesTemp.push_back(node->left);
+        }
+
+        if (node->right) {
+          temp.push_back(node->right->val);
+          nodesTemp.push_back(node->right);
+        }
+      }
+
+      nodes.push_back(nodesTemp);
+      if (!temp.empty()) {
+        result.push_back(temp);
+      }
+    }
+
+    return result;
+  }
+};
+
+class Solution103 {
+ public:
+  vector<vector<int>> zigzagLevelOrder(TreeNode* root) {
+    std::vector<std::vector<int>> result;
+    std::vector<std::vector<TreeNode*>> nodes;
+    if (root == nullptr) {
+      return result;
+    }
+
+    nodes.push_back(vector<TreeNode*>{root});
+    result.push_back(vector<int>{root->val});
+    while (!nodes.back().empty()) {
+      std::vector<int> temp;
+      std::vector<TreeNode*> nodesTemp;
+      for (auto node : nodes.back()) {
+        if (node->left) {
+          temp.push_back(node->left->val);
+          nodesTemp.push_back(node->left);
+        }
+
+        if (node->right) {
+          temp.push_back(node->right->val);
+          nodesTemp.push_back(node->right);
+        }
+      }
+
+      nodes.push_back(nodesTemp);
+      if (!temp.empty()) {
+        result.push_back(temp);
+      }
+    }
+
+    for (int i=0;i<result.size(); i++) {
+      if (i % 2 == 0) {
+        continue;
+      }
+
+      std::reverse(result[i].begin(), result[i].end());
+    }
+
+    return result;
+  }
+};
+
+class Solution104 {
+ public:
+  int maxDepth(TreeNode* root) {
+    if (root == nullptr) {
+      return 0;
+    }
+
+    return 1 + std::max(maxDepth(root->left), maxDepth(root->right));
+  }
+};
+
+class Solution105 {
+ public:
+  TreeNode* build(vector<int>& preOrder, int preStart, int preEnd, std::vector<int>& inOrder, int inStart, int intEnd) {
+  }
+
+  TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+  }
+};
+
 int main() {
-  Solution99 sol;
-  auto root = sol.construct1();
-  sol.recoverTree(root);
-  sol.print(root);
+  Solution101 sol;
+  TreeNode* p1 = nullptr;
+  TreeNode* p2 = nullptr;
+  sol.construct(&p1, &p2);
+  std::cout << sol.isSameTree(p1, p2) << std::endl;
   return 0;
 }
