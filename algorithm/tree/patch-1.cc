@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <map>
 #include <algorithm>
 
 using namespace std;
@@ -122,9 +123,90 @@ class Solution113 {
 class Solution114 {
  public:
   void flatten(TreeNode* root) {
+    if (root == nullptr) {
+      return;
+    }
 
+    flatten(root->left);
+    flatten(root->right);
+
+    TreeNode* left = root->left;
+    TreeNode* right = root->right;
+
+    root->left = nullptr;
+    root->right = left;
+
+    TreeNode* temp = root;
+    while (temp->right) {
+      temp = temp->right;
+    }
+    temp->right = right;
   }
 };
+
+class Node {
+ public:
+  int val;
+  Node* left;
+  Node* right;
+  Node* next;
+
+  Node() : val(0), left(NULL), right(NULL), next(NULL) {}
+  Node(int _val) : val(_val), left(NULL), right(NULL), next(NULL) {}
+  Node(int _val, Node* _left, Node* _right, Node* _next)
+      : val(_val), left(_left), right(_right), next(_next) {}
+};
+class Solution116 {
+ public:
+  void connect(Node* left, Node* right) {
+    if (left == nullptr || right == nullptr) {
+      return;
+    }
+
+    left->next = right;
+
+    connect(left->left, left->right);
+    connect(right->left, right->right);
+    connect(left->right, right->left);
+  }
+
+  Node *connect(Node *root) {
+    if (root == nullptr) {
+      return nullptr;
+    }
+
+    connect(root->left, root->right);
+    return root;
+  }
+};
+
+class Solution {
+ public:
+  int calculate(TreeNode* root) {
+    if (root == nullptr) {
+      return 0;
+    }
+
+    int leftSum = std::max(calculate(root->left), 0);
+    int rightSum = std::max(calculate(root->right), 0);
+    int sum = root->val + leftSum + rightSum;
+    if (sum > max) {
+      max = sum;
+    }
+
+    return root->val+std::max(leftSum, rightSum);
+  }
+
+  int64_t max = INT64_MIN;
+  int maxPathSum(TreeNode* root) {
+    if (root == nullptr) {
+      return 0;
+    }
+    calculate(root);
+    return max;
+  }
+};
+
 
 int main() {
   Solution113 sol;
