@@ -143,7 +143,7 @@ Kafka是一个分布式流处理平台，它以**高吞吐、可持久化、可�
    - **exclude.internal.topics**：指定Kafka两个内部Topic：`__consumer_offsets`和`__transaction_state`是否可以向外部暴露。默认true
    - **receive.buffer.bytes**：用来设置Socket接收消息缓冲区（SO_RECBUF）的大小，默认为64KB
    - **send.buffer.bytes**：用来设置Socket发送消息缓冲区（SO_SNDBUF）的大小，默认128KB
-   - **request.timeout.ms**：用来配置Consumer等待请求响应的最长时间，默认30s
+   - **request.timeout.ms**：用来配置Consumer等待请求响应的最长时间，默认30stemp1
    - **metadata.max.age.ms**：消费者持有的元数据的过期时间，默认300s
    - **reconnect.backoff.ms**：重新连接主机之前的等待时间（退避重试时间），默认50ms
    - **retry.backoff.ms**：尝试重新发送失败请求到服务器的等待时间，默认100ms
@@ -157,36 +157,292 @@ Kafka是一个分布式流处理平台，它以**高吞吐、可持久化、可�
    - **enable.auto.commit**：配置是否需要auto commit，默认为true
    - **auto.commit.interval.ms**：控制auto commit的频率。默认5s
 
-## 主题和分区
+## 主题
 
 主题作为消息的分类，可以再细分为一个或者多个分区。同时，分区的划分不仅为Kafka提供了可伸缩性、水平拓展的功能，还通过多副本机制为Kafka提供了数据冗余，增强可靠性。
 
 ![image-20211103191907967](assets/image-20211103191907967.png)
 
-### 
+### 管理
 
-- Topic管理
+详见Kafka运维篇
 
-  详见Kafka运维篇
+### 配置项
 
-- Topic-Config管理
+| Topic可选配置项                         | 释义                                                         |
+| --------------------------------------- | ------------------------------------------------------------ |
+| unclean.leader.election.enable          | 是否可以从非ISR集合中选举leader副本。默认为false。若修改为true，将可能导致数据丢失 |
+| max.message.bytes                       | 消息的最大字节数，默认1000012                                |
+| cleanup.policy                          | 日志压缩策略，默认为delete。可选compact                      |
+| compression.type                        | 消息压缩类型，默认producer，表示保存原始类型。可选：snappy, lz4, gzip |
+| delete.retention.ms                     | 标记为被删除的数据，多久可已被真正删除。默认86400000ms，即1天 |
+| file.delete.delay.ms                    | 清理文件之前可以等待多长时间，默认值为60000ms，即1分钟       |
+| index.interval.bytes                    | 用来控制添加索引项的频率，每超过配置值，就添加一个索引项。默认4096 |
+| min.insync.replicas                     | 分区ISR集合中至少应该有多少个副本，默认1                     |
+| log.retention.ms                        | 使用delete策略清理消息时，消息最大的保存时间。默认604800000ms，即7天 |
+| max.compaction.lag.ms                   |                                                              |
+| message.downconversion.enable           |                                                              |
+| message.format.version                  | 消息格式的版本                                               |
+| message.timestamp.difference.max.ms     | 消息时间戳与broker时间戳的最大差值。不要修改！！             |
+| message.timestamp.type                  | 消息时间戳类型。不要修改！！                                 |
+| min.cleanable.dirty.ratio               | 清理日志消息时的最小污浊率，默认0.5                          |
+| min.compaction.lag.ms                   | 日志再被清理前的最小保留时间 ,默认值为 0                     |
+| preallocate                             | 创建日志分段时是否需要预留分区，默认为false                  |
+| retention.bytes                         | 分区中能保留的消息总量，默认值为-1，即没有限制               |
+| segment.bytes                           | 日志分段的最大值，默认1073 741824，即1GB                     |
+| segment.index.bytes                     | 日志分段索引的最大值，默认10485760，即10MB                   |
+| segment.jitter.ms                       | 滚动日志分段时，增加的随机时间。不要修改！！                 |
+| segment.ms                              | 最长多久滚动一次日志分段，默认604800000，即7天               |
+| flush.messages                          | 需要收集多少消息，才会强制刷新数据到磁盘上。不要修改！！     |
+| flush.ms                                | 需要等待多久才会将消息强制刷新至磁盘。不要修改！！           |
+| follower.replication.throttled.replicas | 限制分区副本的复制速率                                       |
+| leader.replication.throttled.replicas   | 限制leader分区副本的复制速率                                 |
 
-  详见Kafka运维篇
-
-### 分区
+## 分区
 
 分区使用多副本机制来提升可靠性，但只有leader副本对外提供读写服务，而follower副本只负责在内部进行消息的同步。如果一个分区的 leader 副本不可用，那么就意味着整个分区变得不可用，此时就需要Kafka从剩余的follower副本中挑选一个新的leader副本来继续对外提供服务。
 
-- **优先副本选举**
+### 优先副本选举
 
-  为了有效的治理集群负载均衡（Brokers级别），Kafka引入了优先副本的概念，特指AR副本集合列表中的第一个副本。**所谓的优先副本选举是指通过一定的方式促进优先副本选举为leader副本，从而来促进集群的负载均衡。**这块有一个需要注意的概念：**分区分布均衡并不意味着Kafka集群的负载均衡。因为每一个分区leader副本的负载不尽相同。**所以需要使用优先副本选举这样的手段，动态的调整分区分布，尽量保证Kafka集群负载均衡。
+在创建Topic时，分区会均匀的分布在Brokers，且kafka保证：**针对同一分区，在同一个Broker上不可能出现他的多个副本**。3分区，2副本，3 Broker的分布状态如下：
 
-  在创建Topic时，分区会均匀的分布在Brokers，且kafka保证：**针对同一分区，在同一个Broker上不可能出现他的多个副本**。3分区，2副本，3 Broker的分布状态如下：
+![](assets/1.jpg)
 
-  ![](assets/1.jpg)
+如果此时Broker 2挂掉，由于分区多副本机制保证了高可用，分区分布会变成如下状态：
 
-  如果此时Broker 2挂掉，由于分区多副本机制保证了高可用，分区分布会变成如下状态：
+![](assets/2.jpg)
 
-  ![](assets/2.jpg)
+稍后Broker 2 恢复之后。会出现：分区分布依旧均衡，但是Broker 1负载翻倍，而Broker 2无负载的情况。
 
-  稍后Broker 2 恢复之后。会出现：Broker 2完全无压力
+为了有效的治理集群负载均衡（Brokers级别），Kafka引入了优先副本的概念，特指AR副本集合列表中的第一个副本。**所谓的优先副本选举是指通过一定的方式促进优先副本选举为leader副本，从而来促进集群的负载均衡。**这块有一个需要注意的概念：**分区分布均衡并不意味着Kafka集群的负载均衡。因为每一个分区leader副本的负载不尽相同。**所以需要使用优先副本选举这样的手段，动态的调整分区分布，尽量保证Kafka集群负载均衡。
+
+> kafka支持自动”优先副本选举“功能，默认每5分钟触发一次”优先副本选举“操作。但是建议生产环境将自动功能关闭，而是视情况进行手动”优先副本选举“操作。
+
+优先副本选举工具详见Kafka运维篇。
+
+### 失效副本
+
+Kafka Broker采用唯一的broker参数：**replica.lag.time.max.ms**来进行判断，默认10000ms。超过此时间，follower副本就会被剔除ISR集合，成为失效副本。以下情形将导致副本失效：
+
+- follower副本卡住，在一段时间内没有向leader副本发送同步请求。比如说可能遇到了full GC
+- follower副本的同步速率慢于leader副本的写入速度
+
+### 副本HW&LEO
+
+根据术语篇中的定义，HW和LEO中间有一段暂时不能被Consumer消费的数据，这段数据有什么作用呢？
+
+![](assets/8tym54spsx.png)
+
+![](assets/dqb170wuic.png)
+
+![](assets/87n6asowte.png)
+
+![](assets/ivdwuqt4p2.png)
+
+### 分区重分配
+
+分区重分配主要工作在**集群扩容**、**集群缩容**、**Broker节点失效**的场景中：
+
+- Broker失效：在分区多副本的前提下，Broker宕机会导致leader副本转移到其他Broker上的follower副本上。但是kafka并不会将失效Broker上的其他分区副本转移到可用的Broker节点上
+- 集群扩容：只有新创建的Topic分区才有可能分配到新的Broker上，而之前的Topic不会主动转移到新节点上
+- 集群缩容：当要对某个Broker进行有计划的下线时，需要有计划的将这个Broker上的分区副本转移到其他Broker上
+
+## 日志格式
+
+![image-20211104191641483](assets/image-20211104191641483.png)
+
+日志文件满足下述条件之一后，将被切分：
+
+- Log文件大小超过broker端参数 log.segment.bytes 配置的值，默认为1GB
+- Log文件中最早的消息时间戳与目前系统的时间戳的差值超过log.roll.ms，默认7天
+- 偏移量索引文件的大小超过log.index.size.max.bytes时（默认10MB），Log文件将被切分
+
+### 日志索引
+
+- 偏移量索引：消息偏移量 <-> 物理文件位置
+
+  - relativeOffset：相对偏移量，表示消息相对baseOffset（即当前文件的名称，如：00000000000000000000 .index）的偏移量，占用4个字节。
+  - position：物理地址，消息在日志分段文件中对应的物理地址，占用4个字节
+
+  ![image-20211104194151476](assets/image-20211104194151476.png)
+
+- 时间戳索引：时间戳 <-> 物理文件位置
+
+  - timestamp：消息时间戳，占用8个字节
+  - relativeOffset：时间戳对应的消息偏移量，占用4个字节
+
+  ![image-20211104194430525](assets/image-20211104194430525.png)
+
+Kafka中的索引文件以**稀疏索引**的方式构建索引，并不保证每个消息在文件中都有索引项。每当写入一定量消息（默认4KB）时，偏移量索引文件和时间戳索引文件分别增加一个偏移量索引项和时间戳索引项，增大或减小 **log.index.interval.bytes**的值，对应地可以增加或缩小索引项的密度。
+
+稀疏索引通过 MappedByteBuffer 将索引文件映射到内存中，以加快索引的查询速度。偏移量索引文件中的偏移量是单调递增的，查询指定偏移量时，使用二分查找法来快速定位偏移量的位置，如果指定的偏移量不在索引文件中，则会返回小于指定偏移量的最大偏移量。时间戳索引文件中的时间戳也保持严格的单调递增，查询指定时间戳时，也根据二分查找法来查找不大于该时间戳的最大偏移量，至于要找到对应的物理文件位置还需要根据偏移量索引文件来进行再次定位。**稀疏索引的方式是在磁盘空间、内存空间、查找时间等多方面之间的一个折中。**
+
+### 日志清理
+
+- Delete
+
+  Broker周期检测是否有需要删除的Topic，配置项为**log.retention.check.interval.ms**，默认5分钟检测一轮
+
+  删除策略：
+
+  - 基于时间：log.retention.ms配置项，默认7天
+  - 基于日志大小：log.retention.bytes配置项，默认-1，表示无穷大。一般情况下，不会限制采用这个策略
+
+- Compact
+
+  针对每个消息的Key进行整合，对于相同Key的不同Value，仅保留最新的版本
+
+### 磁盘存储
+
+Kafka使用硬盘存储消息，但是在我们的印象中，硬盘相对内存、寄存器等是一个很慢的存储介质。然而，硬盘可以比我们预想的更快，完全取决于我们如何使用它。
+
+![image-20211104200531965](assets/image-20211104200531965.png)
+
+**Kafka 在设计时采用了文件追加的方式来写入消息**，即只能在日志文件的尾部追加新的消息，并且也不允许修改己写入的消息，这种方式属于典型的顺序写盘的操作。这种做法使得Kafka在性能上具有足够的竞争力。
+
+页缓存是操作系统实现的一种主要的磁盘缓存，以此用来减少对磁盘 I/O的操作。具体来说，就是将把磁盘中的数据缓存到内存中，把对磁盘的访问变成对内存的访问。Kafka大量使用页缓存，这是Kafka实现高吞吐的基本盘。虽然消息都是被写入了页缓存，然后由操作系统负责刷盘，但是Kafka依旧提供了同步刷盘的以及强制刷盘的配置项。同步刷盘提高了消息的可靠性，防止机器掉电导致消息丢失。但是依旧建议：**消息的可靠性由多副本保障**。
+
+最后，强烈建议：**Kafka Broker关闭Swap操作**！！
+
+## Broker
+
+### 控制器
+
+在 Kafka 集群中会有一个或多个 broker，其中有一个broker会被选举为控制器( Kafka-Controller )，它负责管理整个集群中所有分区和副本的状态。
+
+- 控制器的职责
+  - 监听分区变化，并管理分区状态
+  - 监听Topic变化，并管理Topic状态
+  - 监听Broker变化，并管理Broker状态
+  - 从Zookeeper中获取读取当前所有与Broker、Topic、Partition相关的信息，并进行管理。
+  - 更新集群的元数据信息
+  - 如果设置了**auto.leader.rebalance.enable**，将启动一个定时任务来维护集群的负载均衡
+
+- **控制器的选举过程**
+
+  控制器的选举工作依赖于ZK，成功竞选的Broker会在Zookeeper中创建/controller临时节点。在任意时刻，集群中有且仅有一个控制器。
+
+  ZK中还有一个与控制器相关的/controller_epoch永久节点，节点中存放一个整型的controller_epoch值，用来记录当前的控制器是第几代控制器。每次产生新的控制器后，这个值都会+1。Kafka通过controller_epoch来保证控制器的唯一性，进而保证相关操作的一致性。
+
+- 分区Leader的选举
+
+  从AR副本集中找到优先副本，并且确保这个副本在ISR集合中。如果ISR集合中没有可用的副本，判断：unclean.leader.election.enable是否为true，为true的话，可以从OSR中找副本。
+
+### 配置项
+
+| Broker可选配置项                        | 释义                                                         |
+| --------------------------------------- | ------------------------------------------------------------ |
+| broker.id                               | 标志broker身份                                               |
+| reserved. broker.max.id                 | broker id的最大值，默认1000                                  |
+| broker.id.generation.enable             | 是否启用自动生成broker id的功能，默认true                    |
+| bootstrap.servers                       | consumer、producer必备参数                                   |
+| auto.create.topics.enable               | 是否启用自动创建topic的功能，默认true                        |
+| num.partitions                          | 主题中默认的分区数量，默认1                                  |
+| auto.leader.rebalance.enable            | 是否启用自动分区leader平衡。默认为true                       |
+| leader.imbalance.check.interval.seconds | 检查分区是否均衡的周期，默认5min                             |
+| log.flush.interval.messages             | 触发fsync的消息大小，默认9223372036854775807字节             |
+| log.flush.interval.ms                   | 触发fsync的周期，默认null。即不启用                          |
+| delete.topic.enable                     | 是否可以删除Topic，默认为true                                |
+| unclean.leader.election.enable          | 是否可以从非ISR集合中选举leader副本。默认为false。若修改为true，将可能导致数据丢失 |
+| max.message.bytes                       | 消息的最大字节数，默认1000012                                |
+| log.cleaner.enable                      | 是否启用log清理功能，默认true                                |
+| log.cleanup.policy                      | 日志压缩策略，默认为delete。可选compact                      |
+| compression.type                        | 消息压缩类型，默认producer，表示保存原始类型。可选：snappy, lz4, gzip |
+| log.cleaner.delete.retention.ms         | 标记为被删除的数据，多久可已被真正删除。默认86400000ms，即1天 |
+| log.segment.delete.delay.ms             | 清理文件之前可以等待多长时间，默认值为60000ms，即1分钟       |
+| log.index.interval .bytes               | 用来控制添加索引项的频率，每超过配置值，就添加一个索引项。默认4096 |
+| min.insync.replicas                     | 分区ISR集合中至少应该有多少个副本，默认1                     |
+| log.retention.ms                        | 使用delete策略清理消息时，消息最大的保存时间。默认null，未设置 |
+| log.retention.hours                     | 使用delete策略清理消息时，消息最大的保存时间。默认168，即7天 |
+| log.retention.bytes                     | 分区中能保留的消息总量，默认值为-1，即没有限制               |
+| log.message.format.version              | 消息格式的版本                                               |
+| log.message.timestamp.difference.max.ms | 消息时间戳与broker时间戳的最大差值。不要修改！！             |
+| log.message.timestamp.type              | 消息时间戳类型。不要修改！！                                 |
+| log.min.cleanable.dirty.ratio           | 清理日志消息时的最小污浊率，默认0.5                          |
+| log.min.compaction.lag.ms               | 日志再被清理前的最小保留时间 ,默认值为 0                     |
+| log.preallocate                         | 创建日志分段时是否需要预留分区，默认为false                  |
+| log.segment.bytes                       | 日志分段的最大值，默认1073 741824，即1GB                     |
+| log.index.size.max.bytes                | 日志分段索引的最大值，默认10485760，即10MB                   |
+| log.roll.jitter.ms                      | 滚动日志分段时，增加的随机时间。不要修改！！                 |
+| log.roll.ms                             | 最长多久滚动一次日志分段，默认null，未设置                   |
+| log.roll.hours                          | 最长多久滚动一次日志分段，默认168，即7天                     |
+| log.flush.interval.messages             | 需要收集多少消息，才会强制刷新数据到磁盘上。不要修改！！     |
+| log.flush.interval.ms                   | 需要等待多久才会将消息强制刷新至磁盘。不要修改！！           |
+| follower.replication.throttled.rate     | 限制分区副本的复制速率                                       |
+| leader.replication.throttled.rate       | 限制leader分区副本的复制速率                                 |
+
+## Client
+
+### 分区分配策略
+
+Kafka提供了Consumer客户端参数**partition.assignment.strategy**来设置消费者与订阅主题之前的分区分配策略。默认使用**RangeAssignor**策略，除此之外，Kafka还提供了另外两种分配策略：**RoundRobinAssignor**和**StickyAssignor**
+
+- **RangeAssignor**
+
+  按照消费者总数和分区总数来进行整除运算来获得一个跨度，然后将分区平均分配，以保证分区尽可能均匀的分配给所有消费者。
+
+- **RoundRobinAssignor**
+
+  将消费组内所有消费者及消费者订阅的所有主题的分区按照字典序排序，然后通过轮询方式逐个将分区依次分配给每个消费者。
+
+- **StickyAssignor**
+
+  分区的分配要尽可能均匀；分区的分配尽可能与上次的分配保持相同；当两者发生冲突时，第一个目标优于第二个目标
+
+### 分区再平衡
+
+触发分区再平衡的情形：
+
+- 有消费者退出消费者组
+- 有消费者加入消费者组
+- 分区数量增加
+- 分区数量减少
+
+### 事务
+
+消息中间件的的传输保障有3个层级，分别如下：
+
+- 至多一次：消息可能会丢失，但绝对不会重复
+- 至少一次：消息绝对不会丢失，但是可能会重复
+- 恰好一次：每条消息肯定会被传输一次且仅传输一次
+
+对于Kafka而言，保障级别取决于消费者的消费方式：
+
+1. 消费者拉取消息，紧接着处理消息，处理完成后再提交Offset。如果处理消息的时候出现异常，将导致重复消费，即**至少一次**的语义
+2. 消费者拉取消息，直接提交Offset，最后再处理消息。如果处理消息的时候出现异常，将导致消息丢失，即**至多一次**的语义
+
+为了解决上述两种消息处理方式带来的问题，Kafka引入了**幂等**和**事务**两个特性。
+
+- **幂等**
+
+  > 幂等是指，对接口的多次调用所产生的结果与调用一次是一致的
+
+  使用幂等特性时，无需对Kafka进行额外的配置，让应用层保证即可。
+
+- **事务**
+
+  使用事务特性时，需要对Kafka进行显示的配置，详见客户端配置项：**transactional.id**。且Kafka同样支持事务的4个特性：**A（原子性）、C（一致性）、I（隔离性）、D（持久性）**。在隔离性的支持上，需要配置客户端参数：**isolation.level**，且可选参数为：
+
+  - **read_uncommitted**：默认值，应用可以看到未提交的事务
+  - **read_committed**：应用只能看到已提交的事务
+
+  > 在使用事务时，必须要将enable.auto.commit设置为false
+
+## Q&A
+
+1. 如何选择合适的分区副本数
+
+   对于业务消息的预计大小、硬件资源、环境配置等进行综合考量，并使用**kafka-producer-perf-test.sh**和**kafka-consumer-perf-test.sh**在业务环境下进行基准测试。如果要部署多分区副本时，尽量将分区副本的数量控制为Broker的整数倍。
+
+2. Kafka不支持主从读写分离，为什么呢？
+
+   与Redis集群的问题一样，存在：
+
+   - 数据一致性问题
+   - 延时问题
+
+   这两个问题在Redis中无解，需要应用做容忍处理。
+
+3. 讲讲你对Kafka可靠性的理解
+
+   从Kafka部署、消息生产、消息消费3个角度去思考这个问题。
