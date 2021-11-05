@@ -7,3 +7,5 @@ cmake-build-debug/*
 a
 core
 core*
+zk
+kafka-*
