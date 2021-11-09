@@ -9,3 +9,4 @@ core
 core*
 zk
 kafka-*
+kafka-*/*
