@@ -68,27 +68,6 @@ Kafka是一个分布式流处理平台，它以**高吞吐、可持久化、可�
      - 可重试错误：server连接错误、partation no leader错误等。这类错误，可以将client配置成自动重试，由client解决
      - 不可重试错误：在应用的回调函数中捕捉错误，并进行处理
 
-3. 生产者配置项
-
-   - **acks**：指定了必须要有多少个分区副本接收到消息，才能认为消息是写入成功的
-     - **acks=0**：生产者写入消息直接返回，不在意是否有副本接收到消息。**吞吐量最大，可靠性最低。**
-     - **acks=1**：只要Partation Leader副本接收到消息，就返回success。**吞吐量和可靠性的折中选择**。
-     - **acks=all**：生产者在消息发送之后，需要等待 **ISR 中的所有副本**都成功写入消息之后才能够收到来自服务端的成功响应。理论上来说，**吞吐量最小，可靠性最高**。但是需要注意，在集群状态不健康的情况下，ISR中仅剩Partation Leader副本，将退化成acks=1。
-   - **max.request.size**：单个请求中可以发送的消息的大小，默认为1MB。使用时，需要broker、producer、consumer都配置
-   - **retries**：遇到可重试错误时，决定了生产者可重发消息的次数。默认为0，不进行重试。注意：**重试有可能引起消息错乱。**
-   - **retry.backoff.ms**：可重新发送消息的时间间隔，默认100ms。
-   - **compression.type**：决定发送消息时，消息是否被压缩。默认值none。可选："gzip", "snappy", "lz4"
-   - **linger.size**：生产者发送同一批次的消息时，等待的时间。增加消息延时的同时，增加消息发送数量。默认值为0，生产者客户端会在Batch填满时或者超过"linger.ms"值时发送出去。
-   - **receive.buffer.bytes**：用来设置Socket接收消息缓冲区（SO_RECBUF）的大小，默认为32KB
-   - **send.buffer.bytes**：用来设置Socket发送消息缓冲区（SO_SNDBUF）的大小，默认128KB
-   - **request.timeout.ms**：生产者在发送数据时等待服务器返回响应的时间。默认30s
-
-   - **buffer.memory**：用来设置生产者的内存缓冲区大小。默认32MB
-   - **batch.size**：同一批次可以发送的消息大小。默认16KB
-   - **max.block.ms**：调用send方法阻塞（发送缓冲区已满）或者获取分区元数据阻塞（partation leader 选举）时，最大的block时间。默认60s。
-   - **max.in.flight.requests.per.connection**：指定生产者在收到服务器响应之前可以发送多少个消息，默认5。值越大，占用内存越多，吞吐量越高；**设置为1，可以保证消息一定按照顺序写入服务器的，即使发生了重试**。
-   - **timeout.ms**：指定broker等待同步副本返回消息确认的时间，与acks的配置相匹配：如果在指定时间内没有收到同步副本的确认，那么broker就会返回一个错误
-   - **fetch.timeout.ms**：生产者在在获取broker元数据（例如partation leader是谁）时，等待服务器返回响应的时间
 
 ## 消费者
 
@@ -132,71 +111,12 @@ Kafka是一个分布式流处理平台，它以**高吞吐、可持久化、可�
      - 消息丢失：如果应用处理消息失败，但是调用了AsyncCommit，就会导致消息丢失
    - **最佳实践**：**同步+异步组合提交**。正常情况下，使用异步提交增加应用的吞吐量。发生异常时，使用同步提交保证在稍后发生的Reblance过程中不会造成消息重复。
    
-6. 消费者配置项
-
-   - **group.id**：消费者组ID，默认为空
-   - **fetch.min.bytes**：指定消费者从服务器一次请求获取的最小字节数，默认1Bytes
-   - **fetch.max.bytes**：指定消费者从服务器一次请求获取的最大字节数，默认50MB
-   - **fetch.max.wait.ms**：消费者一次请求最大的等待时间，默认500ms
-   - **max.partation.fetch.bytes**：broker从每个分区中返回给消费者的最大字节数，默认为1MB。假设20个分区+4个消费者，那么每个消费者至少需要5MB的内存来存储从broker中获取的数据
-   - **max.poll.records**：一起拉取请求中拉取的最大消息数量，默认500条
-   - **exclude.internal.topics**：指定Kafka两个内部Topic：`__consumer_offsets`和`__transaction_state`是否可以向外部暴露。默认true
-   - **receive.buffer.bytes**：用来设置Socket接收消息缓冲区（SO_RECBUF）的大小，默认为64KB
-   - **send.buffer.bytes**：用来设置Socket发送消息缓冲区（SO_SNDBUF）的大小，默认128KB
-   - **request.timeout.ms**：用来配置Consumer等待请求响应的最长时间，默认30stemp1
-   - **metadata.max.age.ms**：消费者持有的元数据的过期时间，默认300s
-   - **reconnect.backoff.ms**：重新连接主机之前的等待时间（退避重试时间），默认50ms
-   - **retry.backoff.ms**：尝试重新发送失败请求到服务器的等待时间，默认100ms
-   - **isolation.level**：用来配置消费者的事务隔离级别，默认`read_uncommitted`
-     - read_uncommitted：无法读到未提交的消息，可以消费到HW的位置。
-     - read_committed：消费者会忽略未提交的事务，只能消费到LSO位置
-   - **session.timeout.ms**：消费者与broekr的最大心跳时间，如果在`session.timeout.ms`期间没有发送心跳给broker，就会发生Partation Reblance。默认10s
-   - **auto.offset.reset**：消费者在读取一个没有偏移量或者偏移量失效的分区时，该如何处理
-     - **latest**：从最新的位置开始读取数据
-     - **earlist**：从分区最开始的位置读取消息
-   - **enable.auto.commit**：配置是否需要auto commit，默认为true
-   - **auto.commit.interval.ms**：控制auto commit的频率。默认5s
 
 ## 主题
 
 主题作为消息的分类，可以再细分为一个或者多个分区。同时，分区的划分不仅为Kafka提供了可伸缩性、水平拓展的功能，还通过多副本机制为Kafka提供了数据冗余，增强可靠性。
 
 ![image-20211103191907967](assets/image-20211103191907967.png)
-
-### 管理
-
-详见Kafka运维篇
-
-### 配置项
-
-| Topic可选配置项                         | 释义                                                         |
-| --------------------------------------- | ------------------------------------------------------------ |
-| unclean.leader.election.enable          | 是否可以从非ISR集合中选举leader副本。默认为false。若修改为true，将可能导致数据丢失 |
-| max.message.bytes                       | 消息的最大字节数，默认1000012                                |
-| cleanup.policy                          | 日志压缩策略，默认为delete。可选compact                      |
-| compression.type                        | 消息压缩类型，默认producer，表示保存原始类型。可选：snappy, lz4, gzip |
-| delete.retention.ms                     | 标记为被删除的数据，多久可已被真正删除。默认86400000ms，即1天 |
-| file.delete.delay.ms                    | 清理文件之前可以等待多长时间，默认值为60000ms，即1分钟       |
-| index.interval.bytes                    | 用来控制添加索引项的频率，每超过配置值，就添加一个索引项。默认4096 |
-| min.insync.replicas                     | 分区ISR集合中至少应该有多少个副本，默认1                     |
-| log.retention.ms                        | 使用delete策略清理消息时，消息最大的保存时间。默认604800000ms，即7天 |
-| max.compaction.lag.ms                   |                                                              |
-| message.downconversion.enable           |                                                              |
-| message.format.version                  | 消息格式的版本                                               |
-| message.timestamp.difference.max.ms     | 消息时间戳与broker时间戳的最大差值。不要修改！！             |
-| message.timestamp.type                  | 消息时间戳类型。不要修改！！                                 |
-| min.cleanable.dirty.ratio               | 清理日志消息时的最小污浊率，默认0.5                          |
-| min.compaction.lag.ms                   | 日志再被清理前的最小保留时间 ,默认值为 0                     |
-| preallocate                             | 创建日志分段时是否需要预留分区，默认为false                  |
-| retention.bytes                         | 分区中能保留的消息总量，默认值为-1，即没有限制               |
-| segment.bytes                           | 日志分段的最大值，默认1073 741824，即1GB                     |
-| segment.index.bytes                     | 日志分段索引的最大值，默认10485760，即10MB                   |
-| segment.jitter.ms                       | 滚动日志分段时，增加的随机时间。不要修改！！                 |
-| segment.ms                              | 最长多久滚动一次日志分段，默认604800000，即7天               |
-| flush.messages                          | 需要收集多少消息，才会强制刷新数据到磁盘上。不要修改！！     |
-| flush.ms                                | 需要等待多久才会将消息强制刷新至磁盘。不要修改！！           |
-| follower.replication.throttled.replicas | 限制分区副本的复制速率                                       |
-| leader.replication.throttled.replicas   | 限制leader分区副本的复制速率                                 |
 
 ## 分区
 
@@ -306,8 +226,6 @@ Kafka使用硬盘存储消息，但是在我们的印象中，硬盘相对内存
 
 ## Broker
 
-### 控制器
-
 在 Kafka 集群中会有一个或多个 broker，其中有一个broker会被选举为控制器( Kafka-Controller )，它负责管理整个集群中所有分区和副本的状态。
 
 - 控制器的职责
@@ -327,49 +245,6 @@ Kafka使用硬盘存储消息，但是在我们的印象中，硬盘相对内存
 - 分区Leader的选举
 
   从AR副本集中找到优先副本，并且确保这个副本在ISR集合中。如果ISR集合中没有可用的副本，判断：unclean.leader.election.enable是否为true，为true的话，可以从OSR中找副本。
-
-### 配置项
-
-| Broker可选配置项                        | 释义                                                         |
-| --------------------------------------- | ------------------------------------------------------------ |
-| broker.id                               | 标志broker身份                                               |
-| reserved. broker.max.id                 | broker id的最大值，默认1000                                  |
-| broker.id.generation.enable             | 是否启用自动生成broker id的功能，默认true                    |
-| bootstrap.servers                       | consumer、producer必备参数                                   |
-| auto.create.topics.enable               | 是否启用自动创建topic的功能，默认true                        |
-| num.partitions                          | 主题中默认的分区数量，默认1                                  |
-| auto.leader.rebalance.enable            | 是否启用自动分区leader平衡。默认为true                       |
-| leader.imbalance.check.interval.seconds | 检查分区是否均衡的周期，默认5min                             |
-| log.flush.interval.messages             | 触发fsync的消息大小，默认9223372036854775807字节             |
-| log.flush.interval.ms                   | 触发fsync的周期，默认null。即不启用                          |
-| delete.topic.enable                     | 是否可以删除Topic，默认为true                                |
-| unclean.leader.election.enable          | 是否可以从非ISR集合中选举leader副本。默认为false。若修改为true，将可能导致数据丢失 |
-| max.message.bytes                       | 消息的最大字节数，默认1000012                                |
-| log.cleaner.enable                      | 是否启用log清理功能，默认true                                |
-| log.cleanup.policy                      | 日志压缩策略，默认为delete。可选compact                      |
-| compression.type                        | 消息压缩类型，默认producer，表示保存原始类型。可选：snappy, lz4, gzip |
-| log.cleaner.delete.retention.ms         | 标记为被删除的数据，多久可已被真正删除。默认86400000ms，即1天 |
-| log.segment.delete.delay.ms             | 清理文件之前可以等待多长时间，默认值为60000ms，即1分钟       |
-| log.index.interval .bytes               | 用来控制添加索引项的频率，每超过配置值，就添加一个索引项。默认4096 |
-| min.insync.replicas                     | 分区ISR集合中至少应该有多少个副本，默认1                     |
-| log.retention.ms                        | 使用delete策略清理消息时，消息最大的保存时间。默认null，未设置 |
-| log.retention.hours                     | 使用delete策略清理消息时，消息最大的保存时间。默认168，即7天 |
-| log.retention.bytes                     | 分区中能保留的消息总量，默认值为-1，即没有限制               |
-| log.message.format.version              | 消息格式的版本                                               |
-| log.message.timestamp.difference.max.ms | 消息时间戳与broker时间戳的最大差值。不要修改！！             |
-| log.message.timestamp.type              | 消息时间戳类型。不要修改！！                                 |
-| log.min.cleanable.dirty.ratio           | 清理日志消息时的最小污浊率，默认0.5                          |
-| log.min.compaction.lag.ms               | 日志再被清理前的最小保留时间 ,默认值为 0                     |
-| log.preallocate                         | 创建日志分段时是否需要预留分区，默认为false                  |
-| log.segment.bytes                       | 日志分段的最大值，默认1073 741824，即1GB                     |
-| log.index.size.max.bytes                | 日志分段索引的最大值，默认10485760，即10MB                   |
-| log.roll.jitter.ms                      | 滚动日志分段时，增加的随机时间。不要修改！！                 |
-| log.roll.ms                             | 最长多久滚动一次日志分段，默认null，未设置                   |
-| log.roll.hours                          | 最长多久滚动一次日志分段，默认168，即7天                     |
-| log.flush.interval.messages             | 需要收集多少消息，才会强制刷新数据到磁盘上。不要修改！！     |
-| log.flush.interval.ms                   | 需要等待多久才会将消息强制刷新至磁盘。不要修改！！           |
-| follower.replication.throttled.rate     | 限制分区副本的复制速率                                       |
-| leader.replication.throttled.rate       | 限制leader分区副本的复制速率                                 |
 
 ## Client
 
@@ -417,7 +292,7 @@ Kafka提供了Consumer客户端参数**partition.assignment.strategy**来设置�
 
   > 幂等是指，对接口的多次调用所产生的结果与调用一次是一致的
 
-  使用幂等特性时，无需对Kafka进行额外的配置，让应用层保证即可。
+  使用幂等特性时，需要将**enable.idempotence**设置为true。
 
 - **事务**
 

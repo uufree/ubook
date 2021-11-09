@@ -8,8 +8,8 @@ services:
     ports:
       - "2181:2181"
     volumes:
-      - /home/sensetime/test/kafka/zk/data:/data
-      - /home/sensetime/test/kafka/zk/datalog:/datalog
+      - ./zk/data:/data
+      - ./zk/datalog:/datalog
       - /etc/localtime:/etc/localtime:ro
 
   kafka-0:
@@ -22,13 +22,12 @@ services:
       - "9092:9092"
     environment:
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181" # zk地址
-      KAFKA_ADVERTISED_HOST_NAME: "kafka-0" # 广播主机名称
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://10.152.208.13:9092 # Kafka广播地址及端口，也就是告诉客户端，使用什么地址和端口能连接到Kafka
       KAFKA_LISTENERS: PLAINTEXT://:9092 # Kafka启动所使用的的协议及端口
       KAFKA_LOG_DIRS: /kafka/kafka-logs
       KAFKA_BROKER_ID: 1
     volumes:
-      - /home/sensetime/test/kafka/kafka-0:/kafka
+      - ./kafka-0:/kafka
       - /etc/localtime:/etc/localtime:ro
 
   kafka-1:
@@ -41,13 +40,12 @@ services:
       - "9093:9093"
     environment:
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_ADVERTISED_HOST_NAME: "kafka-1"
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://10.152.208.13:9093
       KAFKA_LISTENERS: PLAINTEXT://:9093
       KAFKA_LOG_DIRS: /kafka/kafka-logs
       KAFKA_BROKER_ID: 2
     volumes:
-      - /home/sensetime/test/kafka/kafka-1:/kafka
+      - ./kafka-1:/kafka
       - /etc/localtime:/etc/localtime:ro
 
   kafka-2:
@@ -60,12 +58,11 @@ services:
       - "9094:9094"
     environment:
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_ADVERTISED_HOST_NAME: "kafka-2"
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://10.152.208.13:9094
       KAFKA_LISTENERS: PLAINTEXT://:9094
       KAFKA_LOG_DIRS: /kafka/kafka-logs
       KAFKA_BROKER_ID: 3
     volumes:
-      - /home/sensetime/test/kafka/kafka-2:/kafka
+      - ./kafka-2:/kafka
       - /etc/localtime:/etc/localtime:ro
 
