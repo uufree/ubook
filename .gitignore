@@ -10,3 +10,4 @@ core*
 zk
 kafka-*
 kafka-*/*
+*.rdb
