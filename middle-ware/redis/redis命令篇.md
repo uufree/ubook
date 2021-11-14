@@ -296,6 +296,21 @@ HyperLogLog是一种基数算法，底层使用字符串类型。可以利用极
 5) (integer) 2  # 多长时间后,漏斗完全空出来(left_quota==capacity,单位秒)
 ```
 
+### TimeSeries
+
+- 创建时间序列：`ts.create t2 labels name uuchen labels age 24`
+
+  `labels`后面可以跟接n个标签，在`ts.mget`时可用
+
+- 删除时间序列：`del t2`
+- 往时间序列中插入数据：`ts.add t1 1 1`
+- 从时间序列中获取**最新的**数据：`ts.get t1`
+- 根据标签条件，从时间序列中获取**最新的**数据：`ts.mget t1 filter name=uuchen`
+- 从时间序列中获取范围数据，并做聚合计算。支持以下聚合命令：min, max, avg, sum, range, count, first, last
+  - 获取范围数据：`ts.range t1 1 10`
+  - 获取范围数据，并以大小为3的时间窗口计算sum：`ts.range t1 1 10 aggregation sum 3`
+  - 获取范围数据，并以大小为3的时间窗口计算avg：`ts.range t1 1 10 aggregation avg 3`
+
 ### GEO
 
 Redis提供GEO（地理位置定位）功能，支持存储地理位置信息。**GEO底层数据结构为zset**。

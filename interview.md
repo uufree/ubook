@@ -174,3 +174,193 @@
     - 讲讲Mysql的索引结构。为什么要用B+树
 
 - 设计模式
+
+## 2021.10.29 11:00-12:00
+
+- 算法：不同的二叉搜索树2，Middle
+
+- 自我介绍
+
+- 项目经历
+
+- 语言基础。
+
+  - 引用和指针有什么区别？
+  - struct和class有什么区别？
+  - New/delete malloc/free的区别？
+  - 智能指针用过吗？讲讲shared_ptr、unique_ptr和weak_ptr？
+  - 用过哪些STL容器。讲讲map和unordered_map以及使用场合
+  - 虚函数有用过吗？虚函数和纯虚函数有什么区别？在一个继承体系中，有那些函数必须要声明为虚函数？为什么？
+  - 强制类型转换有用过吗？挑两种熟悉的讲讲
+  - 讲讲C++对象模型
+  - 讲讲Linux C进程内存模型
+
+- 操作系统
+
+  - 用过Linux吗？
+  - 用Linux做过什么？
+  - 进程和线程有什么区别？
+  - 进程切换时，发生了那些事情？
+  - 线程切换时，发生了那些事情？
+  - 讲讲对虚拟内存和物理内存的理解
+  - 协程切换时，发生了那些事情？为什么快于线程切换
+
+- 网络
+
+  - 讲讲UDP和TCP的区别
+
+  - 讲讲三次握手、四次挥手
+
+  - 讲讲timewait状态
+
+  - 讲讲拥塞控制。
+
+    https://zhuanlan.zhihu.com/p/37379780
+
+    - 慢开始、拥塞避免
+    - 快速重传
+    - 快速恢复
+
+- 数据库
+
+  - Redis
+  - Mysql
+
+## 2021.10.29 14:00-15:00
+
+- 自我介绍
+
+- 算法：不同的二叉搜索树2，Middle
+
+- 项目经历
+
+- 语言基础：golang
+
+  - 子问题a：map不经初始化，直接进行存取操作会发生什么事情？get ok，set panic。
+  - 子问题b：map for range时，能否在遍历中进行delete操作？可以。
+  - 子问题d：map的扩容时机和扩容策略是什么？
+    - 时机：负载因子>6.5 & bucket数量过多
+    - 策略：bucket数量 * 2
+  - 子问题e：make和new的区别是什么
+    - new：仅分配内存空间，返回指针，不进行初始化
+    - make：分配空间&初始化，返回引用。适用于：slice、channel、map
+  - 子问题f：对未初始化的channel进行读写，会发生什么？
+    - 读：deadlock/panic
+    - 写：deadlock/panic
+  - 子问题g：对已关闭的channel进行读写，会发生什么？
+    - 读：如果channel有值，返回value, true；如果无值，返回zero，false
+    - 写：panic
+  - 子问题h：goroutine并发控制的几种方式。写伪代码。50%
+    - sync.WaitGroup
+    - channel
+
+- 操作系统
+
+  - 用过Linux吗？
+  - 用Linux做过什么？
+  - 进程和线程有什么区别？
+  - 进程切换时，发生了那些事情？
+  - 线程切换时，发生了那些事情？
+  - 讲讲对虚拟内存和物理内存的理解
+  - 协程切换时，发生了那些事情？为什么快于线程切换
+
+- 网络
+
+  - 讲讲UDP和TCP的区别
+
+  - 讲讲三次握手、四次挥手
+
+  - 讲讲timewait状态
+
+  - 讲讲拥塞控制。
+
+    https://zhuanlan.zhihu.com/p/37379780
+
+    - 慢开始、拥塞避免
+    - 快速重传
+    - 快速恢复
+
+- 开源组件
+
+  - redis
+    - 用过Redis吗？用Redis做过那些事情？
+    - Redis有那些数据结构？讲讲
+    - Redis集群的高可用是怎么做到的？讲讲Sentinel模式下，故障转移的步骤
+    - Redis异常阻塞，讲讲你的排查思路
+    - 有用过Cluster吗？讲讲Redis Cluster中数据分布的方式？有考虑过为什么使用这种分布方式吗？
+  - mysql
+    - 讲讲Mysql的索引结构。为什么要用B+树
+    - 讲讲几种Mysql Log
+      - bin log
+      - redo log
+      - undo log
+
+## 2021.11.02 19:30-20:30
+
+- 自我介绍
+
+- 算法：不同的二叉搜索树
+
+- 项目经历
+
+- 语言基础：golang
+
+  - 子问题b：map for range时，能否在遍历中进行delete操作？可以。
+  - 子问题d：map的扩容时机和扩容策略是什么？
+    - 时机：负载因子>6.5 & bucket数量过多
+    - 策略：bucket数量 * 2
+  - 子问题e：make和new的区别是什么
+    - new：仅分配内存空间，返回指针，不进行初始化
+    - make：分配空间&初始化，返回引用。适用于：slice、channel、map
+  - 子问题f：对未初始化的channel进行读写，会发生什么？
+    - 读：deadlock/panic
+    - 写：deadlock/panic
+  - 子问题g：对已关闭的channel进行读写，会发生什么？
+    - 读：如果channel有值，返回value, true；如果无值，返回zero，false
+    - 写：panic
+  - 子问题h：goroutine并发控制的几种方式。
+    - 使用8个协程随机打印1-100的数字
+    - 使用8个协程顺序打印1-100的数组
+
+- 操作系统
+
+  - 用过Linux吗？
+  - 用Linux做过什么？
+  - 进程和线程有什么区别？
+  - 进程切换时，发生了那些事情？
+  - 线程切换时，发生了那些事情？
+  - 讲讲对虚拟内存和物理内存的理解
+  - 协程切换时，发生了那些事情？为什么快于线程切换
+
+- 网络
+
+  - 讲讲UDP和TCP的区别
+
+  - 讲讲三次握手、四次挥手
+
+  - 讲讲timewait状态
+
+  - 讲讲拥塞控制。
+
+    https://zhuanlan.zhihu.com/p/37379780
+
+    - 慢开始、拥塞避免
+    - 快速重传
+    - 快速恢复
+
+- 开源组件
+
+  - redis
+    - 用过Redis吗？用Redis做过那些事情？
+    - Redis有那些数据结构？讲讲
+    - Redis集群的高可用是怎么做到的？讲讲Sentinel模式下，故障转移的步骤
+    - Redis异常阻塞，讲讲你的排查思路
+    - 有用过Cluster吗？讲讲Redis Cluster中数据分布的方式？有考虑过为什么使用这种分布方式吗？
+  - mysql
+    - 讲讲Mysql的索引结构。为什么要用B+树
+    - 用过Mongo的哪些几种索引？
+    - 讲讲mongo的索引结构，为什么要用B树？
+    - 讲讲几种Mysql Log
+      - bin log
+      - redo log
+      - undo log
