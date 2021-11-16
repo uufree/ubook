@@ -170,9 +170,23 @@
   end
   ```
 
-- RedLock（多实例锁）
+- 多实例锁：**RedLock**
 
-  TODO...
+  在Redis的分布式环境下，假设存在N个Redis Master，完全相互独立，不存在主从复制或者其他集群协调机制。在这样的环境下，一个客户端想要获取锁，需要以下几个步骤：
+
+  1. 获取当前的Unix时间戳
+  2. 依次尝试从N个实例上，使用相同的Key和Random Value获取锁。注意：此步骤在请求时，应该设置一个响应超时时间，且这个超时时间要小于锁失效时间，这种做法是为了防止Redis已经挂掉，但是客户端还在等待响应结果。
+  3. 当且仅当从大多数节点（N/2+1）获取锁成功后，并且使用时间小于锁失效时间，才算获取成功
+  4. 如果获取锁失败，Client应该尝试在所有的Redis实例上进行解锁
+
+  尽管使用上述策略，但是依旧是不安全的。例如：有A、B、C这3个节点。
+
+  1. 客户1在A、B上加锁成功，C上加锁失败
+  2. 这时B意外重启，但是由于持久化策略B上的锁没有来得及同步到AOF文件中
+  3. 客户2发起申请，在B、C上加锁成功
+  4. 这时，系统中就会出现两把锁，不安全！！
+
+  解决方案：**延迟重启，且延迟时间>锁的失效时间**
 
 - **锁冲突的解决方式**：
   
@@ -218,7 +232,151 @@
 
     详细使用方式详见redis命令篇
 
+## Go Client
 
+采用https://github.com/go-redis/redis作为Golang Redis Client，生态如下：
+
+- Mock：https://github.com/go-redis/redismock
+- Distributed Lock：https://github.com/go-redsync/redsync
+- Cache（类似ORM框架）：https://github.com/go-redis/cache
+- Rate Limiting：https://github.com/go-redis/redis_rate
+- Distributed Tracing：https://opentelemetry.uptrace.dev/guide/distributed-tracing.html#what-is-tracing
+
+### Best Practices
+
+- 使用`redis.Nil`检查Key是否存在
+
+  ```go
+  val, err := rdb.Get(ctx, "key").Result()
+  switch {
+  case err == redis.Nil:
+  	fmt.Println("key does not exist")
+  case err != nil:
+  	fmt.Println("Get failed", err)
+  case val == "":
+  	fmt.Println("value is empty")
+  }
+  ```
+
+- 执行接口不支持的命令
+
+  ```go
+  val, err := rdb.Do(ctx, "get", "key").Result()
+  if err != nil {
+  	if err == redis.Nil {
+  		fmt.Println("key does not exists")
+  		return
+  	}
+  	panic(err)
+  }
+  fmt.Println(val.(string))
+  ```
+
+- 事务
+
+  ```go
+  const maxRetries = 1000
+  
+  // Increment transactionally increments key using GET and SET commands.
+  increment := func(key string) error {
+  	// Transactional function.
+  	txf := func(tx *redis.Tx) error {
+  		// Get current value or zero.
+  		n, err := tx.Get(ctx, key).Int()
+  		if err != nil && err != redis.Nil {
+  			return err
+  		}
+  
+  		// Actual operation (local in optimistic lock).
+  		n++
+  
+  		// Operation is commited only if the watched keys remain unchanged.
+  		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+  			pipe.Set(ctx, key, n, 0)
+  			return nil
+  		})
+  		return err
+  	}
+  
+  	for i := 0; i < maxRetries; i++ {
+  		err := rdb.Watch(ctx, txf, key)
+  		if err == nil {
+  			// Success.
+  			return nil
+  		}
+  		if err == redis.TxFailedErr {
+  			// Optimistic lock lost. Retry.
+  			continue
+  		}
+  		// Return any other error.
+  		return err
+  	}
+  
+  	return errors.New("increment reached maximum number of retries")
+  }
+  ```
+
+- 创建Cluster Client
+
+  ```go
+  rdb := redis.NewFailoverClusterClient(&redis.ClusterOptions{
+      NewClient: func(opt *redis.Options) *redis.NewClient {
+          user, pass := userPassForAddr(opt.Addr)
+          opt.Username = user
+          opt.Password = pass
+  
+          return redis.NewClient(opt)
+      },
+  })
+  
+  err := rdb.ForEachShard(ctx, func(ctx context.Context, shard *redis.Client) error {
+      return shard.Ping(ctx).Err()
+  })
+  if err != nil {
+      panic(err)
+  }
+  ```
+
+- 创建Sentinel Client
+
+  ```go
+  import "github.com/go-redis/redis/v8"
+  
+  rdb := redis.NewFailoverClusterClient(&redis.FailoverOptions{
+      MasterName:    "master-name",
+      SentinelAddrs: []string{":9126", ":9127", ":9128"},
+  
+      // To route commands by latency or randomly, enable one of the following.
+      //RouteByLatency: true,
+      //RouteRandomly: true,
+  })
+  ```
+
+- 创建Redis Ring
+
+  Ring is a Redis client that uses consistent hashing to distribute keys across multiple Redis servers (shards). It's safe for concurrent use by multiple goroutines.
+
+  ```go
+  rdb := redis.NewRing(&redis.RingOptions{
+      NewClient: func(opt *redis.Options) *redis.NewClient {
+          user, pass := userPassForAddr(opt.Addr)
+          opt.Username = user
+          opt.Password = pass
+  
+          return redis.NewClient(opt)
+      },
+  })
+  ```
+
+  ```go
+  import "github.com/golang/groupcache/consistenthash"
+  
+  ring := redis.NewRing(&redis.RingOptions{
+      NewConsistentHash: func() {
+          return consistenthash.New(100, crc32.ChecksumIEEE)
+      },
+  })
+  ```
 
 
 

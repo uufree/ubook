@@ -86,6 +86,27 @@ TODO: 原理
 
 ![image-20211018204221539](assets/image-20211018204221539.png)
 
+### Cuckoo Filter
+
+Cuckoo Filter解决了布隆过滤器**不能删除**且**存在误判**的缺点，但是牺牲了空间存储效率。了解Cuckoo Filter的原理之前，得先了解Cuckoo Hash的工作原理。
+
+> 经测试，Cuckoo Filter依旧存在误差
+
+Cuckoo Hash是成对的（具体的实现可以根据需求设计），每一个元素都是两个，分别映射到两个位置，一个是记录的位置，另一个是备用位置，这个备用位置是处理碰撞时用的。
+
+例如：使用hashA 和 hashB 计算对应key X的位置a和b
+
+1. 当两个哈希位置有一个为空时，则插入该空位置；
+2. 当两个哈希位置均不为空时，随机选择两者之一的位置上key Y 踢出，并计算踢出的key Y在另一个哈希值对应的位置，若为空直接插入，不为空踢出原元素插入，再对被踢出的元素重新计算，重复该过程，直到有空位置为止。直到被踢的次数达到一个上限，才确认哈希表已满，并执行rehash操作。
+
+根据以上原理，Cuckoo Filter在插入过程中做了以下事情：
+
+1. 在插入过程中可能因为反复踢出无限循环下去，这时就需要进行一次循环踢出的限制，超出限制则认为过滤器容量不足，需要进行扩容
+2. Cuckoo Filter实际存储的是Key Finger（指纹），通过Key Hash计算所得，一般为8-12bit
+3. 计算Key Location 1和Key Location 2的方式为：
+   - Location 1 = Hash(key)
+   - Location 2 = Location1 xor Hash(key finger)
+
 ## 线程、网络IO模型
 
 Redis是单线程主要指：

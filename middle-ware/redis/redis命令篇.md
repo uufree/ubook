@@ -1,4 +1,4 @@
-# Redis命令篇
+# Redis命令篇	
 
 [TOC]
 
@@ -75,6 +75,7 @@
   - cursor：第一次遍历从0开始，每次scan遍历都会返回当前游标的值。直至游标值为0，表示遍历结束
   - match pattern：可选参数。模式匹配。
   - count number：可选参数。明确表示每次要遍历的键的个数。默认值是10。
+- 查看某个key的内存占用：`memory usage bf`
 
 ## 事务
 
@@ -138,7 +139,7 @@
 - 删除field：`hdel key field [field1 field2 ...]`
 - 计算field的个数：`hlen key`
 - 批量设置值：`hmset key field value [field1 value1 ...]`
-- 批量获取值：`hget key field field1 field2`
+- 批量获取值：`hmget key field field1 field2`
 - 判断field是否存在：`hexists key field`
 - 获取key的所有field：`hkeys key`
 - 获取key的所有value：`hvals key`
@@ -156,7 +157,9 @@
 命令如下：
 
 - 从右边插入元素：`rpush key value [value1 value2 ...]`
+- 从右边向已存在的列表插入元素：`rpushx key value [value1 value2 ...]`
 - 从左边插入元素：`lpush key value [value1 value2 ...]`
+- 从左边向已存在的列表插入元素：`lpushx key value [value1 value2 ...]`
 - 获取范围元素：`lrange key start end`
   - 注：区间类型为：**左右闭合区间**
   - 例如：`lrange key 0 -1`，从左到右获取列表的所有元素
@@ -171,7 +174,6 @@
     - count > 0：从左到右，删除最多count个元素
     - count < 0：从右到左，删除最多count绝对值个元素
     - count = 0：删除所有符合条件的元素
-
 - 按照索引范围修剪元素：`ltrim key start end`
   - 例如：`ltrim key 1 3`，仅会保留key [2~4] 的元素
 - 修改元素：`lset key index newValue`
@@ -200,9 +202,9 @@
   - 求多个集合的交集：`sinter key [key1 key2 ...]`
   - 求多个集合的并集：`sunion key [key1 key2 ...]`
   - 求多个集合的差集：`sdiff key [key1 key2 ...]`
-  - 保存交集的结果：`sinterstore destination key [key1 key2 ...]`
-  - 保存并集的结果：`sunionstore destination key [key1 key2 ...]`
-  - 保存差集的结果：`sdiffstore destation key [key1 key2 ...]`
+  - 保存交集的结果：`sinterstore key [key1 key2 ...]`
+  - 保存并集的结果：`sunionstore key [key1 key2 ...]`
+  - 保存差集的结果：`sdiffstore key [key1 key2 ...]`
 
 ### 有序集合
 
@@ -211,10 +213,10 @@
 - 集合内操作
   - 添加元素：`zadd [nx|xx] [ch] [incr] key score menber [score1 member1 score2 member2]`
 
-    - nx：Key必须不存在，才能设置成功。用于添加
-    - xx：Key必须存在，才能设置成功。用于更新
-    - ch：返回此次操作后，有序集合元素和分数发生变化的个数
-    - incr：对score做增加
+    - `nx`：Key必须不存在，才能设置成功。用于添加
+    - `xx`：Key必须存在，才能设置成功。用于更新
+    - `ch`：返回此次操作后，有序集合元素和分数发生变化的个数
+    - `incr`：对score做增加
   - 计算元素的个数：`zcard key`
   - 获取某个元素的分数：`zscore key member`
   - 计算元素的正序排名：`zrank key member`
@@ -223,12 +225,12 @@
   - 增加元素的分数：`zincrby key incrment member`
   - 正序：返回指定排名范围的元素：`zrange key start end [withscore]`
   - 倒序：返回指定排名范围的元素：`zrevrange key start end [withscore]`
-  - 正序：返回指定分数范围的元素：`zrangebyscore key min max [withscore] [limit offset coutn]`
+  - 正序：返回指定分数范围的元素：`zrangebyscore key min max [withscore] [limit offset count]`
   - 倒序：返回指定分数范围的元素：`zrevrangebyscore key min max [withscore] [limit offset coutn]`
 
     - 注：可以使用**-inf表示无限小**；**+inf表示无限大**
   - 返回指定分数范围的成员个数：`zcount key min max`
-  - 删除指定排名内的升序元素：`zremrangebtrank key start end`
+  - 删除指定排名内的升序元素：`zremrangebyrank key start end`
 
     - 例：`zremrangebyrank user:ranking 0 2`，删除排名0-2名的元素
   - 删除指定分数范围的成员：`zremrangebyscore key min max`
@@ -243,7 +245,7 @@
     - numkeys：需要做交集/并集计算键的个数
     - key [key1 key2 ... ]：需要做交集/并集计算的键
     - weight [weight1 weight2]：每个键的权重。做交集计算时，每个键中的每个member会将自己的分数乘以这个权重，每个键的默认权重是1
-  - aggregate sum|min|max：计算成员交集后，分值可以按照sum（默认）、min、max的方式做汇总
+    - aggregate sum|min|max：计算成员交集后，分值可以按照sum（默认）、min、max的方式做汇总
 
 ### 位图
 
@@ -273,7 +275,7 @@ HyperLogLog是一种基数算法，底层使用字符串类型。可以利用极
 使用命令如下：
 
 - 添加数据：`pfadd key element [element1 element2 ... ]`
-- 计算数量：`pfadd key [key1 key2 ... ]`
+- 计算数量：`pfcount key [key1 key2 ... ]`
 - 合并：`pfmerge destKey sourceKey [sourceKey1 sourceKey2 ... ]`
 
 ### BloomFilter
@@ -282,7 +284,19 @@ HyperLogLog是一种基数算法，底层使用字符串类型。可以利用极
 - 新增元素：`bf.add name uuchen`
 - 批量新增元素：`bf.madd name uuchen ppn`
 - 判断元素：`bf.exists name uuchen`
-- 批量判断元素：`bf.exists name uuchen ppn`
+- 批量判断元素：`bf.mexists name uuchen ppn`
+- 返回详细的元素信息：`bf.info name`
+
+### CuckooFilter
+
+- 创建一个可存储1000元素（超过会自行拓展）的布谷鸟过滤器：`cf.reserve cf 1000 [bucketsize {bucket size}] [maxiterations {maxiterations}]`
+  - bucketsize：Number of items in each bucket. A higher bucket size value improves the fill rate but also causes a higher error rate and slightly slower performance. Default is 2.
+  - maxiterations：若出现冲突，cuckoo hash的尝试执行次数。过小意味着更快的插入速度，但可能会引起频繁的拓张；过大意味着插入变慢，但是填充率更高，使用空间更小
+- 新增元素：`cf.add name uuchen`
+- 批量新增元素：`cf.insert items name age uuchen ppn`
+- 判断元素是否存在：`cf.exists name uuchen`
+- 删除元素：`cf.del name uuchen`
+- 查看详细的元素信息：`cf.info name`
 
 ### Cell（限流）
 
@@ -305,7 +319,7 @@ HyperLogLog是一种基数算法，底层使用字符串类型。可以利用极
 - 删除时间序列：`del t2`
 - 往时间序列中插入数据：`ts.add t1 1 1`
 - 从时间序列中获取**最新的**数据：`ts.get t1`
-- 根据标签条件，从时间序列中获取**最新的**数据：`ts.mget t1 filter name=uuchen`
+- 根据标签条件，从时间序列中获取**最新的**数据：`ts.mget filter name=uuchen`
 - 从时间序列中获取范围数据，并做聚合计算。支持以下聚合命令：min, max, avg, sum, range, count, first, last
   - 获取范围数据：`ts.range t1 1 10`
   - 获取范围数据，并以大小为3的时间窗口计算sum：`ts.range t1 1 10 aggregation sum 3`
@@ -346,7 +360,7 @@ Redis提供GEO（地理位置定位）功能，支持存储地理位置信息。
 
 - 加载可重复使用的脚本：`script load script-content`
 
-- 执行可重复使用的脚本：`svalsha script-sha256 key个数 key列表 参数列表`
+- 执行可重复使用的脚本：`evalsha script-sha256 key个数 key列表 参数列表`
 
   ```shell
   127.0.0.1:6379> script load 'return "hello " .. KEYS[1] .. ARGV[1]'
