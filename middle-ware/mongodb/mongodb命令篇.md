@@ -430,16 +430,69 @@ $unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
   { "_id" : ObjectId("6194f903e8c86bef3b68c4be"), "name" : "uuchen", "objs" : { "3" : 3 } }
   ```
 
-- `$project`：修改输入文档的结构。可以用来重命名、增加或删除字段
+- `$project`：修改输入文档的结构，从文档内着手，**构建`$group`步骤的输入**。可以用来重命名、增加或删除字段。除此之外，还有一些非常实用的功能。
+
+  - 算术操作符
+    - `$add [exp1, exp2, exp3...]`：exp1 + exp2 + exp3 + ...
+    - `$subtract [exp1 exp2]`：exp1 - exp2
+    - `$multiply [exp1, exp2, exp3...]`：exp1 * exp2 * exp3 * ...
+    - `$divide [exp1, exp2]`：exp1 / exp2
+    - `$mod [exp1, exp2]`：exp1 % exp2
+  - 日期操作符
+    - `$year`
+    - `$month`
+    - `$week`
+    - `$dayOfMonth`
+    - `$dayOfWeek`
+    - `$dayofYear`
+    - `$hour`
+    - `$minute`
+    - `$second`
+  - 字符串操作符
+    - `$substr [exp, startOffset, numToReturn]`
+    - `$concat [exp1, exp2, exp3...]`
+    - `$toLower`
+    - `$toUpper`
+  - 逻辑操作符：TODO，这块比较麻烦，有需要再看。详见《MongoDB权威指南》p136
 
   ```bash
   > db.test.aggregate([{$unwind: "$objs"}, {$match: {name: "uuchen"}}, {$project: {_id: 0, name: 1}}])
   { "name" : "uuchen" }
   { "name" : "uuchen" }
   { "name" : "uuchen" }
+  
+  # 文档内进行add计算
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, sum: {$add: [1,2]}}}])
+  
+  # 文档内进行sub计算
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, sum: {$subtract: [1,2]}}}])
+  
+  # 文档内进行mul计算
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, sum: {$multiply: ["$age", 2]}}}])
+  
+  # 文档内进行div计算
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, sum: {$divide: ["$age", 2]}}}])
+  
+  # 文档内进行mod计算
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, sum: {$mod: ["$age", 2]}}}])
+  
+  # 获取year字段
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, date: {$year: new Date()}}}])
+  
+  # 使用substr进行操作
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, str: {$substr: ["$name", 0, 2]}}}])
+  
+  # 使用concat进行操作
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, str: {$concat: ["$name", "1", "2"]}}}])
+  
+  # 字段小写
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, str: {$toLower: "$name"}}}])
+  
+  # 字段大写
+  db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, str: {$toUpper: "$name"}}}])
   ```
 
-- `$group`：将集合中的文档分组，可用于**重新生成文档**并统计结果。这个步骤存在很多有用的操作符，具体如下：
+- `$group`：将集合中的文档分组，从文档间着手，**重新生成文档**并统计结果。这个步骤存在很多有用的操作符，具体如下：
 
   - 算术操作符
     - `$sum`
