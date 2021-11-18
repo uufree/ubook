@@ -7,9 +7,9 @@
 int main() {
   int ret = 0;
 
-  AvIODemo demo;
-  demo.avio_malloc_free();
-  demo.read_from_memory("/home/sensetime/ffmpeg/terror.mp4");
+  for (int i=0; i<1000; i++) {
+    decode("http://10.5.42.118:8081/data/jsyx/2h.mp4", Video);
+  }
 
   return 0;
 }
