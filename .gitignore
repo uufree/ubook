@@ -11,3 +11,6 @@ zk
 kafka-*
 kafka-*/*
 *.rdb
+*.aof
+mdb
+mdb*
