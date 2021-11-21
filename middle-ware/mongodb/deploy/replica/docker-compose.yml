@@ -1,0 +1,35 @@
+version: '3'
+services:
+    mongo-1:
+        image: mongo:4.2
+        container_name: mongo-1
+        #restart: always
+        ports:
+            - 27017:27017
+        volumes:
+            - ./mdb-1:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --port 27017 --replSet mongos
+    mongo-2:
+        image: mongo:4.2
+        container_name: mongo-2
+        #restart: always
+        ports:
+            - 27018:27018
+        volumes:
+            - ./mdb-2:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --port 27018 --replSet mongos
+    mongo-3:
+        image: mongo:4.2
+        container_name: mongo-3
+        #restart: always
+        ports:
+            - 27019:27019
+        volumes:
+            - ./mdb-3:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --port 27019 --replSet mongos

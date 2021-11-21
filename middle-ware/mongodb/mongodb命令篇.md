@@ -115,7 +115,7 @@ mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][
           user: "tbbuser", 
           pwd: "tbbuser", 
           roles: [
-              {role: "readWrite", db: "tbb"}, 
+              {role: "readWrite", db: "tbb"}, Jaeger
               {role: "dbAdmin", db: "tbb"}
           ]
       }
@@ -399,7 +399,7 @@ mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][
 
 ## 事务
 
-
+TODO...
 
 ## 聚合
 
@@ -578,9 +578,122 @@ $unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
 
 ## MapReduce
 
-比聚合更复杂的聚合，需要使用JS写Map和Reduce函数。较少使用
+比聚合更复杂的聚合，需要使用Js写Map和Reduce函数。较少使用。
 
 ## 副本集
 
+- 展示当前的副本集状态：`rs.status()`
+
+- 初始化副本集：`rs.initiate({_id: "mongos", members: [{_id: 0, host: "mongo-1:27017"}, {_id: 1, host: "mongo-2:27018"},{_id: 2, host: "mongo-3:27019"}]})`
+
+- 往副本集中添加新的副本：`rs.add("mongo-4:27020")`
+
+- 往副本集中添加**仲裁者副本**：`rs.addArb("mongo-4:27020")`
+
+  > 仲裁者副本仅用于选举，不负责数据备份。
+
+- 从副本集中移除副本：`rs.remove("mongo-4:27020")`
+
+- Slave从Master中同步数据：`rs.syncFrom("mongo-2:27018")`
+
+- 允许在Secondary上执行读操作，此步骤**必须在Secondary上执行才有效**：`rs.secondaryOk()`
+
+  > 默认情况下，Secondary无读写权限，仅负责备份
+  
+- 获取集群配置：`rs.conf()`
+
+- 更新集群配置：`rs.reconfig({document})`
+
+  ```bash
+  mongos:SECONDARY> rs.conf()
+  {
+  	"_id" : "mongos",
+  	"version" : 1,
+  	"protocolVersion" : NumberLong(1),
+  	"writeConcernMajorityJournalDefault" : true,
+  	"members" : [
+  		{
+  			"_id" : 0,
+  			"host" : "mongo-1:27017",
+  			"arbiterOnly" : false,	// 是否是仲裁者
+  			"buildIndexes" : true,	// 是否允许build index
+  			"hidden" : false,		// 是否是隐藏节点
+  			// 选举优先级，默认1。范围0-1000。越大，选举优先级越高；0将被禁止参与选举
+  			"priority" : 1,			
+  			"tags" : {
+  				
+  			},
+  			"slaveDelay" : NumberLong(0),	// 延迟复制时间。second
+  			"votes" : 1
+  		},
+  		{
+  			"_id" : 1,
+  			"host" : "mongo-2:27018",
+  			"arbiterOnly" : false,
+  			"buildIndexes" : true,
+  			"hidden" : false,
+  			"priority" : 1,
+  			"tags" : {
+  				
+  			},
+  			"slaveDelay" : NumberLong(0),
+  			"votes" : 1
+  		},
+  		{
+  			"_id" : 2,
+  			"host" : "mongo-3:27019",
+  			"arbiterOnly" : false,
+  			"buildIndexes" : true,
+  			"hidden" : false,
+  			"priority" : 1,
+  			"tags" : {
+  				
+  			},
+  			"slaveDelay" : NumberLong(0),
+  			"votes" : 1
+  		}
+  	],
+  	"settings" : {
+  		"chainingAllowed" : true,
+  		"heartbeatIntervalMillis" : 2000,
+  		"heartbeatTimeoutSecs" : 10,
+  		"electionTimeoutMillis" : 10000,
+  		"catchUpTimeoutMillis" : -1,
+  		"catchUpTakeoverDelayMillis" : 30000,
+  		"getLastErrorModes" : {
+  			
+  		},
+  		"getLastErrorDefaults" : {
+  			"w" : 1,
+  			"wtimeout" : 0
+  		},
+  		"replicaSetId" : ObjectId("6198d4097baed727508ddae5")
+  	}
+  }
+  
+  # 延迟复制demo
+  > conf=rs.conf()
+  > conf["members"][0]["priority"] = 0
+  > conf["members"][0]["slaveDelay"] = 30
+  > rs.reconfig(conf)
+  ```
+
+- 打印oplog的详细信息：`db.printReplicationInfo()`
+
+- 打印复制源信息：`db.printSecondaryReplicationInfo()`
+
 ## 分片
+
+- 查看分片集群状态：`sh.status()`
+
+- 在集群中加入分片副本集（主+从+ARB）：`sh.addShard("cluster1/mongo-r1-1:27018,mongo-r1-2:27018,mongo-r1-3:27018")`
+
+- 开启分片功能：
+
+  **开启分片功能前，一定要先给在Collection上创建Index**
+
+  - DB：`sh.enableSharding("test")`
+  - Collection：`sh.shardCollection("test.test", {name: 1})`
+
+- 查询分片路由：`db.test.find({}).explain()`
 

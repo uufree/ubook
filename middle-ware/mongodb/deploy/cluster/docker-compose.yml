@@ -1,0 +1,126 @@
+version: '3'
+services:
+    mongo-r1-1:
+        image: mongo:4.2
+        container_name: mongo-r1-1
+        volumes:
+            - ./mdb-r1-1:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet cluster1 --shardsvr
+    
+    mongo-r1-2:
+        image: mongo:4.2
+        container_name: mongo-r1-2
+        volumes:
+            - ./mdb-r1-2:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet cluster1 --shardsvr
+    
+    mongo-r1-3:
+        image: mongo:4.2
+        container_name: mongo-r1-3
+        volumes:
+            - ./mdb-r1-3:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet cluster1 --shardsvr
+
+    mongo-r2-1:
+        image: mongo:4.2
+        container_name: mongo-r2-1
+        volumes:
+            - ./mdb-r2-1:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet cluster2 --shardsvr
+    
+    mongo-r2-2:
+        image: mongo:4.2
+        container_name: mongo-r2-2
+        volumes:
+            - ./mdb-r2-2:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet cluster2 --shardsvr
+    
+    mongo-r2-3:
+        image: mongo:4.2
+        container_name: mongo-r2-3
+        volumes:
+            - ./mdb-r2-3:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet cluster2 --shardsvr
+    
+    mongo-r3-1:
+        image: mongo:4.2
+        container_name: mongo-r3-1
+        volumes:
+            - ./mdb-r3-1:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet cluster3 --shardsvr
+    
+    mongo-r3-2:
+        image: mongo:4.2
+        container_name: mongo-r3-2
+        volumes:
+            - ./mdb-r3-2:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet cluster3 --shardsvr
+    
+    mongo-r3-3:
+        image: mongo:4.2
+        container_name: mongo-r3-3
+        volumes:
+            - ./mdb-r3-3:/data/db
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet cluster3 --shardsvr
+
+    mongo-config-1:
+        image: mongo:4.2
+        container_name: mongo-config-1
+        volumes:
+            - ./mdb-config-1:/data/configdb 
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet config --configsvr
+
+    mongo-config-2:
+        image: mongo:4.2
+        container_name: mongo-config-2
+        volumes:
+            - ./mdb-config-2:/data/configdb 
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet config --configsvr
+
+    mongo-config-3:
+        image: mongo:4.2
+        container_name: mongo-config-3
+        volumes:
+            - ./mdb-config-3:/data/configdb 
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        command: mongod --replSet config --configsvr
+
+    mongo-cluster-router:
+        image: mongo:4.2
+        container_name: mongo-cluster-router
+        volumes:
+            - /etc/localtime:/etc/localtime:ro
+            - /etc/timezone:/etc/timezone:ro
+        ports:
+            - 27017:27017
+        command: mongos --bind_ip 0.0.0.0 --port 27017 --configdb config/mongo-config-1:47019,mongo-config-2:47019,mongo-config-3:27019
+        depends_on:
+            - mongo-config-1
+            - mongo-config-2
+            - mongo-config-3
+
+
+
