@@ -11,14 +11,14 @@ import (
 
 func main() {
 	client, err := mongo.Connect(context.Background(),
-		options.Client().ApplyURI("mongodb://10.152.208.13:27017"))
+		options.Client().ApplyURI("mongodb://tbbuser:tbbuser@10.152.208.13:27017/tbb"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer client.Disconnect(context.Background())
 	log.Println("create db handler success")
 
-	collection := client.Database("test").Collection("test")
+	collection := client.Database("tbb").Collection("test")
 	log.Println("get collection success")
 
 	start := time.Now()

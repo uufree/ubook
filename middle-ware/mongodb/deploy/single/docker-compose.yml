@@ -10,5 +10,5 @@ services:
             - ./mdb:/data/db
             - /etc/localtime:/etc/localtime:ro
             - /etc/timezone:/etc/timezone:ro
-        command: mongod --auth
+        command: mongod --auth 
 

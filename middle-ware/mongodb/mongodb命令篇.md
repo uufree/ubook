@@ -26,6 +26,8 @@ mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][
 - 切换到一个数据库：`use db-name`
 - 创建一个新的数据库：`use db-name`
 - 删除当前数据库：`db.dropDatabase()`
+- 刷新并锁定数据库：`db.fsyncLock()`
+- 解锁数据库：`db.fsyncUnlock()`
 
 ### 用户管理方案
 
@@ -145,6 +147,8 @@ mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][
 - 删除集合：`db.test.drop()`
 
 - 查询集合的详细信息：`db.test.stat()`
+
+- 集合重命名：`db.test.renameCollection("newtest")`
 
 ## 文档
 
@@ -688,12 +692,62 @@ $unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
 
 - 在集群中加入分片副本集（主+从+ARB）：`sh.addShard("cluster1/mongo-r1-1:27018,mongo-r1-2:27018,mongo-r1-3:27018")`
 
-- 开启分片功能：
+- 删除分片：在删除的过程中，需要重复执行几次这条命令。状态变化为：started -> ongoing -> completed
 
-  **开启分片功能前，一定要先给在Collection上创建Index**
+  ```bash
+  # status = started
+  db.adminCommand({"removeShard": "cluster1"})
+  
+  # status = ongoning
+  db.adminCommand({"removeShard": "cluster1"})
+  
+  # 移动test db到其他cluster上
+  db.adminCommand( { movePrimary: "test", to: "cluster2" })
+  
+  # status = completed
+  db.adminCommand({"removeShard": "cluster1"})
+  ```
+
+- 开启分片功能：**开启分片功能前，一定要先给在Collection上创建Index**
 
   - DB：`sh.enableSharding("test")`
-  - Collection：`sh.shardCollection("test.test", {name: 1})`
-
+- Collection：`sh.shardCollection("test.test", {name: 1})`
+  
 - 查询分片路由：`db.test.find({}).explain()`
 
+- 关闭Collection Balance：`sh.enableBalancing("test.test")`
+
+- 启用Collection Balance：`sh.disableBalancing("test.test")`
+
+- 启用全局Balancer：`sh.startBalancer()`
+
+- 关闭全局Balancer：`sh.stopBalancer()`
+
+- 获取全局Balancer的状态：`sh.getBalancerState()`
+
+- 判断当前是否有Balancer任务正在执行：`sh.isBalancerRunning()`
+
+- 获取是否支持Auto Split：`sh.getShouldAutoSplit()`
+
+- 禁用Auto Split：`sh.disableAutoSplit()`
+
+- 启用Auto Split：`sh.enableAutoSplit()`
+
+- 手动切分Chunk：`sh.splitAt("test.test", {name: "1"})`
+
+- 手动移动Chunk：`sh.moveChunk("test.test", { "name" : "1"}, "cluster3")`
+
+- 修改Chunk大小：
+
+  ```bash
+  use config
+  db.settings.insertOne( { _id:"chunksize", value: <sizeInMB> } )
+  ```
+
+## 其他
+
+- 查询数据库当前正在进行的操作：`db.currentOp()`
+- 终止当前正在进行的操作：`db.killOp(100)`
+- 压缩数据：`db.runCommand({"compact": "test", "paddingFactor": 2})`
+  - `paddingFactor`可选：1～4
+- 
