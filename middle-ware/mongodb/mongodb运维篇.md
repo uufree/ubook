@@ -8,6 +8,8 @@
 
 ## 配置
 
+详见mongod参数
+
 ## 工具链
 
 - **mongod**：Mongo Service
@@ -114,7 +116,53 @@
 
 - **mongoexport**：导出文件（可以以非BSON格式导出）
 
+  - `--quiet`：隐藏所有的输出日志
+  - `--host <ip>`
+  - `--port <port>`
+  - `-u <username>`
+  - `-p <password>`
+  - `--authenticationDatabase <database-name>`：需要验证的DB Name
+  - `--authenticationMechanism <mechanism>`：身份验证算法。一般不用填
+  - `-d <db-name>`：需要导出的DB
+  - `-c <collection-name>`：需要导出的Collection
+  - `-f <f1,f2,f3>`：需要那些字段
+  - `--type=<type>`：导出文件类型。可选json or csv
+  - `-o <output-file-path>`：导出文件路径
+  - `--jsonArray`
+  - `--pretty`
+  - `--noHeaderLine`
+  - `-q <{query-doc}>`：查询条件
+  - `--sort=<json>`
+  - `--skip=<count>`
+  - `--limit=<count>`
+
+  ```bash
+  # 从db中导出数据
+  mongoexport -h 127.0.0.1:27017 -u tbbuser -p tbbuser --authenticationDatabase tbb -d tbb -c test -o test.json --jsonArray --pretty --query='{name: "uuchen"}' --sort='{name: 1}' --skip=2 --limit=2
+  ```
+
 - **mongoimport**：导入文件（接受非BSON格式的导入）
+
+  - `--quiet`：隐藏所有的输出日志
+  - `--host <ip>`
+  - `--port <port>`
+  - `-u <username>`
+  - `-p <password>`
+  - `--authenticationDatabase <database-name>`：需要验证的DB Name
+  - `--authenticationMechanism <mechanism>`：身份验证算法。一般不用填
+  - `-d <db-name>`：需要导出的DB
+  - `-c <collection-name>`：需要导出的Collection
+  - `--file=<filename>`
+  - `--headerline`：是否含有CSV的header line
+  - `--jsonArray`
+  - `--type=<type>`：可选json or csv
+  - `--drop`：导入前删除collection
+  - `--mode=[insert|upsert|merge]`：默认insert
+
+  ```bash
+  # 导入文件
+  mongoimport -h 127.0.0.1:27017 -u tbbuser -p tbbuser --authenticationDatabase tbb -d tbb -c test --file=test.json --type=json --jsonArray
+  ```
 
 - **mongofiles**：GridFS操作工具。真的不需要用MongoDB做存储
 

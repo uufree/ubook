@@ -28,6 +28,7 @@ mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][
 - 删除当前数据库：`db.dropDatabase()`
 - 刷新并锁定数据库：`db.fsyncLock()`
 - 解锁数据库：`db.fsyncUnlock()`
+- 查询数据库详细信息：`db.stats()`
 
 ### 用户管理方案
 
@@ -399,6 +400,7 @@ mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][
 - 创建**TTL索引**（update字段必须为Timestamp或者Date类型）：`db.test.createIndex({update: 1}, {expireAfterSeconds: 30})`
 - **索引查询分析**
   - 展示查询的详细信息：`db.test.find({name: "uuchen"}).explain()`
+  - 展示查询步骤：`db.test.find({name: "uuchen"}).explain("executionStats")`
   - 强制使用某个类型的索引：`db.test.find({name: "uuchen"}).hint({age: 1}).explain()`
 
 ## 事务
@@ -412,6 +414,8 @@ TODO...
 ```bash
 $unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
 ```
+
+在聚合数据量很大的时候，建议启用**allowDiskUse**选项。
 
 - `$unwind`：拆分文档中的数组内容。即将数组中的子文档拆分为文档
 
