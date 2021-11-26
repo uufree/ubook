@@ -191,6 +191,7 @@ func find(collection *mongo.Collection) {
 }
 
 func transaction(client *mongo.Client, collection *mongo.Collection) {
+	// Session可以理解为事务的Context
 	client.UseSession(context.Background(), func(sctx mongo.SessionContext) error {
 		err := sctx.StartTransaction(options.Transaction().
 			SetWriteConcern(writeconcern.New(writeconcern.WMajority(),
