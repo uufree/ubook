@@ -412,7 +412,7 @@ TODO...
 聚合是一组**管道描述符**的组合使用的结果。从前往后，管道描述符的使用顺序为：
 
 ```bash
-$unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
+$unwind -> $match -> $lookup -> $project -> $group -> $sort -> $skip -> $limit
 ```
 
 在聚合数据量很大的时候，建议启用**allowDiskUse**选项。
@@ -420,6 +420,17 @@ $unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
 - `$unwind`：拆分文档中的数组内容。即将数组中的子文档拆分为文档
 
   ```bash
+  {
+    $unwind:
+      {
+        path: <field path>,	// ${object_name}
+        includeArrayIndex: <string>,		// 用于保存数组index
+        // true: 数组为空时，存储null字段；false: 数组为空时，删除字段
+        preserveNullAndEmptyArrays: <boolean>		
+      }
+  }
+  
+  
   > db.test.insert({name: "uuchen", objs: [{1: 1}, {2: 2}, {3: 3}]})
   WriteResult({ "nInserted" : 1 })
   
@@ -438,6 +449,22 @@ $unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
   { "_id" : ObjectId("6194f903e8c86bef3b68c4be"), "name" : "uuchen", "objs" : { "3" : 3 } }
   ```
 
+- `$lookup`：类似Mysql的Left Join
+
+  ```bash
+  {
+     $lookup:
+       {
+         from: <collection to join>,
+         localField: <field from the input documents>,
+         foreignField: <field from the documents of the "from" collection>,
+         as: <output array field>
+       }
+  }
+  
+  > db.test.aggregate([{$match: {name: {$in: ["uuchen", "ppn"]}}}, {$lookup: {from: "test1", localField: "name", foreignField: "name", as: "statistics"}}])
+  ```
+  
 - `$project`：修改输入文档的结构，从文档内着手，**构建`$group`步骤的输入**。可以用来重命名、增加或删除字段。除此之外，还有一些非常实用的功能。
 
   - 算术操作符
@@ -462,6 +489,8 @@ $unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
     - `$toLower`
     - `$toUpper`
   - 逻辑操作符：TODO，这块比较麻烦，有需要再看。详见《MongoDB权威指南》p136
+  - 其他操作符
+    - `$filter`：过滤数组中不复合条件的item
 
   ```bash
   > db.test.aggregate([{$unwind: "$objs"}, {$match: {name: "uuchen"}}, {$project: {_id: 0, name: 1}}])
@@ -498,6 +527,22 @@ $unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
   
   # 字段大写
   db.test.aggregate([{$match: {name: "uuchen"}}, {$project: {name: 1, _id: 0, str: {$toUpper: "$name"}}}])
+  
+  # filter
+  { $filter: { input: <array>, as: <string>, cond: <expression> } }
+  db.sales.aggregate([
+     {
+        $project: {
+           items: {
+              $filter: {
+                 input: "$items",
+                 as: "item",
+                 cond: { $gte: [ "$$item.price", 100 ] }
+              }
+           }
+        }
+     }
+  ])
   ```
 
 - `$group`：将集合中的文档分组，从文档间着手，**重新生成文档**并统计结果。这个步骤存在很多有用的操作符，具体如下：
@@ -754,4 +799,7 @@ $unwind -> $match -> $project -> $group -> $sort -> $skip -> $limit
 - 终止当前正在进行的操作：`db.killOp(100)`
 - 压缩数据：`db.runCommand({"compact": "test", "paddingFactor": 2})`
   - `paddingFactor`可选：1～4
-- 
+
+## Reference
+
+https://www.docs4dev.com/docs/zh/mongodb/v3.6/reference/reference-operator-aggregation-filter.html
