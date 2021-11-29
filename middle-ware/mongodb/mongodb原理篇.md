@@ -64,61 +64,123 @@ MongoDB是一个**面向文档**的数据库，具有以下特点：
 
 ![image-20211118194552790](assets/image-20211118194552790.png)
 
-## 索引
-
-**MongoDB索引背后的数据结构是B-Tree**。
-
 ## 事务
 
-MongoDB 3.0之后采用**WiredTiger**存储引擎，工作在Collection级别，并提供了**文档锁**。如果某个写操作需要长时间完成，那么其他的读写操作都需要被阻塞。所有的插入、更新和删除都需要写入锁。
+数据库隔离级别由以下几种：
 
-https://mongoing.com/%3Fp%3D6084
+- Read UnCommitted：事务A可以读取事务B未提交的数据。可能发生：脏读、不可重复读、幻读，很少使用
+- Read Committed：事务A只能读取事务B已提交的数据。可能发生：不可重复读、幻读，很少使用
+- Repeatable Read：事务A只能在事务B修改并提交数据之后，并且是事务A也提交后，才能读到事务B修改的数据。可能发生幻读
+- **Snapshot Isolation**：事务A将看到了一个一致的数据库版本快照，采用MVCC实现。Snapshot ID由最后一次事务的提交产生。
+  - Read：在这个快照中，读到的值都是一致的，有效的避免了脏读、幻读、不可重复读的问题
+  - Write：仅当没有发生写入冲突时，才能写入成功，否则事务终止
+- Serializable：事务串行执行，避免所有问题
 
-https://juejin.cn/post/6844904066049392654
+在事务并发的条件下，可能出现以下问题：
 
-https://juejin.cn/post/6844904066049392654
-
-https://www.infoq.cn/article/ymcrzl1gzjgdfmlm2voj
+- 脏读：事务A读到了事务B还没有提交的数据
+- 不可重复读：事务A的执行过程中，第一次读取K1，得到V1。之后事务B执行了Update V1 -> V2 where K1。事务A再次读取K1时，又读到了V2。两次读到的值不相同，故称之为不可重复读。
+- 幻读：一个事务先根据某些条件查询出一些记录，之后另一个事务又向表中插入了符合这些条件的记录，原先的事务再次按照该条件查询时，能把另一个事务插入的记录也读出来。
 
 ### 单文档事务
 
-### 多文档事务
-
-### 副本集多文档事务
-
-### 分片多文档事务
-
-
+在MongoDB中，对单个文档的操作是原子的。在建模时，可以在单个文档中使用内嵌子文档或内嵌数组的方式来描述一个对象和另外一个对象以及对象集合的关系。在实际的应用场景中，这种单文档的原子性消除了许多跨文档事务的需求。MongoDB 3.0之后采用**WiredTiger**存储引擎，工作在Collection级别，并提供了**文档锁**。如果某个写操作需要长时间完成，那么其他的读写操作都需要被阻塞。所有的插入、更新和删除都需要写入锁。
 
 ### 多文档事务
+
+从4.0版本开始，MongoDB开始支持多文档事务，但4.0仅支持副本集下的多文档事务，从4.2开始，才支持分片集群的多文档事务。
 
 **Session**是MongoDB 3.6版本引入的概念，本质是一个上下文，引入这个特性的主要目的是为实现**多文档事务**做准备。Session上下文中主要包括：请求耗时统计、请求占用的锁资源、请求使用的存储快照等信息。有个Session这个上下文之后，就可以让多个请求共享一个上下文，让多个请求产生关联，从而有能力支持多文档事务。
 
-事务的基本特性如下：
+事务的基本属性：
 
 - **原子性**
 
-  针对多文档事务，MongoDB提供All or nothing的语义
+  针对多文档事务，MongoDB提供All or nothing的语义。写入步骤包括：
+
+  - 文档
+  - 索引
+  - oplog
+
+  以上操作的原子性由`journal`日志保证，一旦发生写入失败，就会回滚。
 
 - **一致性**
 
-  需要设置Session中的Causal Consistency（因果一致性），主要用于分布式系统中。在分布式系统中，为了保证读写是有序的，就需要对所有节点上的事件进行协调。详细的理解如下：[因果一致性](https://mongoing.com/archives/24728)
+  通过使用`WriteConcern{w: majority}`和`Causal Consistency(因果一致性)`来保证。
 
-- **隔离性**：
+  TODO: 目前仅能将因果一致性理解为分布式事务协调器，保证事务顺序。
 
-  - **local**：读取数据时，不保证数据已写入大部分的副本。**适用于单机事务**
-  - **available**：读取数据时，不保证数据已写入大部分的副本。**适用于单机事务**
-  - **majority**：读取数据时，只读取在**大多数副本**上成功写入的数据。**适用于分布式事务**
-  - **linearizable**：读取数据时，只读取在**全部副本**上成功写入的数据。**适用于分布式事务**
-  - **snapshot**：读取最近快照中的数据。**适用于多文档事务**
+- **隔离性**
+
+  MongoDB通过**ReadPreference**和**ReadConcern**来保证读取隔离性。
+
+  - **ReadPreference**
+
+    - primary：选择主节点
+    - primaryPreferred：优先选择主节点，如果主节点不可用则选择从节点
+    - secondary：选择从节点
+    - secondaryPreferred：优选选择从节点，如果从节点不可用则选择主节点
+    - nearest：选择最近节点
+
+  - **ReadConcern**
+
+    - available：读取所有可用数据
+    
+    - local：读取所有可用且属于当前分片的数据，**默认设置**
+    
+      详细讲讲local和available的区别。举例：Chunk X由S1管理，在迁移过程中，一部分已经迁移到S2上了。此时如果在S2上发生读取操作：
+
+    - **avaliable是有什么读什么，故可以读到Chunk X**
+      - **local只能读取可用且属于S2的Chunk，故无法读到Chunk X**
+
+      因此，**local**是更合理的读取配置项。
+
+    - majority：读取在大多数节点上提交完成的数据
+    
+    - linearizable：**线性读取**在大多数节点上提交完成的数据
+    
+      详细讲讲majority和linearizable的区别。linearizable可以保证绝对操作时序，即写操作后面的读，一定能够读到之前写的数据。可能出现严重的耗时，建议选用**majority**
+    
+    - snapshot：**仅在多文档事务中生效**，在事务开始时创建一个WiredTiger Snapshot，在整个事务过程中使用这个Snapshot提供事务读。使用Snapshot将避免以下问题：
+    
+      - 脏读
+      - 不可重复读
+      - 幻读
+    
 
 - **持久性**
 
-  使用`WriteConcern{j: true}`来保证持久性，即写日志成功才能返回
-
-### 分布式事务
+  通过`WriteConcern{j: true}`来保证持久性，即写`journal`日志成功才能返回
 
 ## 存储引擎
+
+存储引擎要做的事情无外乎是将磁盘上的数据读到内存并返回给应用，或者将应用修改的数据由内存写到磁盘上。目前大多数流行的存储引擎是基于B-Tree或LSM(Log Structured Merge) Tree这两种数据结构来设计的。
+
+- B-Tree：Oracle、SQL Server、DB2、MySQL (InnoDB)和PostgreSQL
+- LSM-Tree：Cassandra、Elasticsearch (Lucene)、Google Bigtable、Apache HBase、LevelDB和RocksDB
+
+对于MongoDB来说，也采用了插件式存储引擎架构，底层的WiredTiger存储引擎还可以支持B-Tree和LSM两种结构组织数据,但**MongoDB在使用WiredTiger作为存储引擎时，目前默认配置是使用了B-Tree结构**。
+
+![](assets/c74d97b01eae257.jpg)
+
+综上，WiredTiger有以下几个特点：
+
+1. 文档级别的并发控制。即多个客户端可以**并发修改集合中不同的文档**
+2. 快照和检查点。**此快照非事务Snapshot。**MongoDB每隔60s或者2GB，生成一个快照和检查点，用作持久化数据。
+3. 日志。保存两个检查点之间所有的数据变更。**日志、快照+检查点保证了数据的持久性**。
+4. 压缩。支持对所有集合和文档使用snappy进行压缩。
+
+### 索引
+
+WiredTiger采用B-Tree作为索引数据结构，在B-Tree中主要包含3种类型的Page，即：
+
+- Root Page：仅包含指向其子页的page index指针，不包含集合中的真正数据
+- Internal Page：仅包含指向其子页的page index指针，不包含集合中的真正数据
+- Leaf Page：包含集合中的真正数据即keys/values和指向父页的home指针
+
+### 其他
+
+https://mongoing.com/guoyuanwei
 
 ## 副本集
 
@@ -141,7 +203,7 @@ MongoDB的复制功能使用**oplog**实现的，操作日志包含了主节点�
 
 ### 选举
 
-当一个成员无法Ping通主节点时，它将申请被选为主节点。如果存在以下条件，其他成员将拒绝选举：
+**采用Raft协议选举**。当一个成员无法Ping通主节点时，它将申请被选为主节点。如果存在以下条件，其他成员将拒绝选举：
 
 - 复制offset远落后于主节点
 - 有一个正常运行的主节点
