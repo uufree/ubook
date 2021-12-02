@@ -1,5 +1,0 @@
-2021/11/29 16:36:37 [emerg] 17290#0: bind() to 0.0.0.0:80 failed (13: Permission denied)
-2021/11/29 16:36:54 [emerg] 17354#0: bind() to 0.0.0.0:80 failed (13: Permission denied)
-2021/11/29 16:37:25 [emerg] 17508#0: bind() to 0.0.0.0:80 failed (13: Permission denied)
-2021/11/29 16:37:39 [emerg] 17516#0: bind() to 0.0.0.0:80 failed (13: Permission denied)
-2021/12/01 19:11:51 [emerg] 6486#0: open() "/home/sensetime/ubook/middle-ware/nginx/deploy/nginx-release-1.20.0/bin/./load-balancing.conf" failed (2: No such file or directory)
