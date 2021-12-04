@@ -2,7 +2,9 @@
 
 [TOC]
 
-## 编译
+## 安装
+
+### Nginx
 
 编译步骤：
 
@@ -14,137 +16,30 @@ make install
 
 编译参数：
 
-- 路径
-  - `--prefix=PATH`
-  - `--sbin-path=PATH`
-  - `--modules-path=PATH`
-  - `--conf-path=PATH`
-  - `--error-log-path=PATH`
-  - `--pid-path=PATH`
-  - `--lock-path=PATH`
-  - `--http-log-path=PATH`
-  - `--http-client-body-temp-path=PATH`
-  - `--http-proxy-temp-path=PATH`
-  - `--http-fastcgi-temp-path=PATH`
-  - `--http-uwsgi-temp-path=PATH`
-  - `--http-scgi-temp-path=PATH`
+```bash
+./configure -h
+```
 
-- 编译
-  - `--with-cc=PATH`
-  - `--with-cpp=PATH`
-  - `--with-cc-opt=OPTIONS`
-  - `--with-ld-opt=OPTIONS`
-  - `--with-cpu-opt=CPU`
+### OpenResty
 
-- 依赖
-  - `--without-pcre`
-  - `--with-pcre`
-  - `--with-pcre=DIR`
-  - `--with-pcre-opt=OPTIONS`
-  - `--with-pcre-jit`
-  - `--with-zlib=DIR`
-  - `--with-zlib-opt=OPTIONS`
-  - `--with-zlib-asm=CPU`
-  - `--with-libatomic`
-  - `--with-libatomic=DIR`
-  - `--with-openssl=DIR`
-  - `--with-openssl-opt=OPTIONS`
+> OpenResty是Nginx的一个Wrapper，在configure参数中准备了两组信息：
+>
+> - Nginx相关的预编译组件
+> - OpenResty相关的预编译组件
 
-- 模块
+编译步骤：
 
-  - 系统调用模块
-    - `--with-select_module`
-    - `--without-select_module`
-    - `--with-poll_module`
-    - `--without-poll_module`
-    - `--with-threads`
-    - `--with-file-aio`
-  - 默认安装的模块
-    - `--without-http`
-    - `--without-http-cache`
-    - `--without-http_charset_module`
-    - `--without-http_gzip_module`
-    - `--without-http_ssi_module`
-    - `--without-http_userid_module`
-    - `--without-http_access_module`
-    - `--without-http_auth_basic_module`
-    - `--without-http_mirror_module`
-    - `--without-http_autoindex_module`
-    - `--without-http_geo_module`
-    - `--without-http_map_module`
-    - `--without-http_split_clients_module`
-    - `--without-http_referer_module`
-    - `--without-http_rewrite_module`
-    - `--without-http_proxy_module`
-    - `--without-http_fastcgi_module`
-    - `--without-http_uwsgi_module`
-    - `--without-http_scgi_module`
-    - `--without-http_grpc_module`
-    - `--without-http_memcached_module`
-    - `--without-http_limit_conn_module`
-    - `--without-http_limit_req_module`
-    - `--without-http_empty_gif_module`
-    - `--without-http_browser_module`
-    - `--without-http_upstream_hash_module`
-    - `--without-http_upstream_ip_hash_module`
-    - `--without-http_upstream_least_conn_module`
-    - `--without-http_upstream_random_module`
-    - `--without-http_upstream_keepalive_module`
-    - `--without-http_upstream_zone_module`
+```bash
+./configure
+make -j10
+make install
+```
 
-  - 默认不安装的模块
-    - `--with-http_ssl_module`
-    - `--with-http_v2_module`
-    - `--with-http_realip_module`
-    - `--with-http_addition_module`
-    - `--with-http_xslt_module`
-    - `--with-http_xslt_module=dynamic`
-    - `--with-http_image_filter_module`
-    - `--with-http_image_filter_module=dynamic`
-    - `--with-http_geoip_module`
-    - `--with-http_geoip_module=dynamic`
-    - `--with-http_sub_module`
-    - `--with-http_dav_module`
-    - `--with-http_flv_module`
-    - `--with-http_mp4_module`
-    - `--with-http_gunzip_module`
-    - `--with-http_gzip_static_module`
-    - `--with-http_auth_request_module`
-    - `--with-http_random_index_module`
-    - `--with-http_secure_link_module`
-    - `--with-http_degradation_module`
-    - `--with-http_slice_module`
-    - `--with-http_stub_status_module`
-  - 邮件代理模块
-    - `--with-mail`
-    - `--with-mail=dynamic`
-    - `--with-mail_ssl_module`
-    - `--without-mail_pop3_module`
-    - `--without-mail_imap_module`
-    - `--without-mail_smtp_module`
-  - 其他模块
-    - `--with-stream`
-    - `--with-stream=dynamic`
-    - `--with-stream_ssl_module`
-    - `--with-stream_realip_module`
-    - `--with-stream_geoip_module`
-    - `--with-stream_geoip_module=dynamic`
-    - `--with-stream_ssl_preread_module`
-    - `--without-stream_limit_conn_module`
-    - `--without-stream_access_module`
-    - `--without-stream_geo_module`
-    - `--without-stream_map_module`
-    - `--without-stream_split_clients_module`
-    - `--without-stream_return_module`
-    - `--without-stream_set_module`
-    - `--without-stream_upstream_hash_module`
-    - `--without-stream_upstream_least_conn_module`
-    - `--without-stream_upstream_random_module`
-    - `--without-stream_upstream_zone_module`
-    - `--with-google_perftools_module`
-    - `--with-cpp_test_module`
-    - `--add-module=PATH`
-    - `--add-dynamic-module=PATH`
+编译参数：
+
+```bash
+./configure -h
+```
 
 ## 工具链
 
@@ -412,6 +307,22 @@ Context:	http, server, location
 Syntax:		resolver_timeout time;
 Default:	resolver_timeout 30s;
 Context:	http, server, location
+
+# 在localtion中设置针对一个resource server的root path
+Syntax:		root path;
+Default:	root html;
+Context:	http, server, location, if in location
+
+# 指定资源过期时间，默认不过期
+Syntax:		expires time;
+Default:	expires -1;
+Context:	location
+
+# 尝试寻找静态资源
+Syntax:		try_files file ... uri;
+			try_files file ... =code;
+Default:	—
+Context:	server, location
 
 ## vars
 $args: arguments in the request line
@@ -810,6 +721,11 @@ location / {
 Syntax:		return code [text];
 			return code URL;
 			return URL;
+Default:	—
+Context:	server, location, if
+
+# set
+Syntax:		set $variable value;
 Default:	—
 Context:	server, location, if
 
