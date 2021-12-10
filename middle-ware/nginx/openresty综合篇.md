@@ -703,7 +703,6 @@ https://github.com/openresty/lua-nginx-module#ngxrematch
 
 - `ok, err = ngx.thread.kill(thread)`
 
-
 #### Coroutine
 
 - `co = coroutine.create(f)`
@@ -720,26 +719,415 @@ https://github.com/openresty/lua-nginx-module#ngxrematch
 
 ### LuaCjsonLibrary
 
-### LuaRestyCoreLibrary
+[Reference](https://github.com/openresty/lua-cjson/)
+
+- `json_text = cjson.encode(value)`
+- `value = cjson.decode(json_text)`
+
+- `cjson.encode_empty_table_as_object(true|false|"on"|"off")`
+
+  将空的table编码成`{}`
+
+- `cjson.empty_array`
+
+  编码出一个`[]`而非nil
+
+  ```lua
+  local cjson = require "cjson"
+  
+  local json = cjson.encode({
+      foo = "bar",
+      some_object = {},
+      some_array = cjson.empty_array
+  })
+  
+  # result
+  {
+      "foo": "bar",
+      "some_object": {},
+      "some_array": []
+  }
+  ```
+
+- `setmetatable({}, cjson.array_mt)`
+
+  将meta table编码成array
+
+  ```lua
+  local t = {}
+  t[1] = "one"
+  t[2] = "two"
+  t[4] = "three"
+  t.foo = "bar"
+  setmetatable(t, cjson.array_mt)
+  cjson.encode(t) -- ["one","two",null,"three"]
+  ```
+
+- `setmetatable({}, cjson.empty_array_mt)`
+
+  将meta table编码成empty array
+
+  ```lua
+  local function serialize(arr)
+      setmetatable(arr, cjson.empty_array_mt)
+  
+      return cjson.encode({some_array = arr})
+  end
+  ```
 
 ### LuaRestyDNSLibrary
 
+[Reference](https://github.com/openresty/lua-resty-dns)
+
 ### LuaRestyLockLibrary
+
+[Reference](https://github.com/openresty/lua-resty-lock)
 
 ### LuaRestyLrucacheLibrary
 
+[Reference](https://github.com/openresty/lua-resty-lrucache)
+
+```lua
+-- file myapp.lua: example "myapp" module
+
+local _M = {}
+
+-- alternatively: local lrucache = require "resty.lrucache.pureffi"
+local lrucache = require "resty.lrucache"
+
+-- we need to initialize the cache on the lua module level so that
+-- it can be shared by all the requests served by each nginx worker process:
+local c, err = lrucache.new(200)  -- allow up to 200 items in the cache
+if not c then
+    error("failed to create the cache: " .. (err or "unknown"))
+end
+
+function _M.go()
+    c:set("dog", 32)
+    c:set("cat", 56)
+    ngx.say("dog: ", c:get("dog"))
+    ngx.say("cat: ", c:get("cat"))
+
+    c:set("dog", { age = 10 }, 0.1)  -- expire in 0.1 sec
+    c:delete("dog")
+
+    c:flush_all()  -- flush all the cached data
+end
+
+return _M
+```
+
+- `cache, err = lrucache.new(max_items [, load_factor])`
+- `cache:set(key, value, ttl?, flags?)`
+- `data, stale_data, flags = cache:get(key)`
+- `cache:delete(key)`
+- `count = cache:count()`
+- `size = cache:capacity()`
+- `keys = cache:get_keys(max_count?, res?)`
+- `cache:flush_all()`
+
+### LuaRestyMemcachedLibrary
+
+[Reference](https://github.com/openresty/lua-resty-memcached)
+
 ### LuaRestyMysqlLibrary
+
+[Reference](https://github.com/openresty/lua-resty-mysql)
+
+```nginx
+# you do not need the following line if you are using
+# the ngx_openresty bundle:
+lua_package_path "/path/to/lua-resty-mysql/lib/?.lua;;";
+
+server {
+	location /test {
+        content_by_lua '
+            local mysql = require "resty.mysql"
+            local db, err = mysql:new()
+            if not db then
+                ngx.say("failed to instantiate mysql: ", err)
+                return
+            end
+
+            db:set_timeout(1000) -- 1 sec
+
+            -- or connect to a unix domain socket file listened
+            -- by a mysql server:
+            --     local ok, err, errcode, sqlstate =
+            --           db:connect{
+            --              path = "/path/to/mysql.sock",
+            --              database = "ngx_test",
+            --              user = "ngx_test",
+            --              password = "ngx_test" }
+
+            local ok, err, errcode, sqlstate = db:connect{
+                    host = "127.0.0.1",
+                    port = 3306,
+                    database = "ngx_test",
+                    user = "ngx_test",
+                    password = "ngx_test",
+                    charset = "utf8",
+                    max_packet_size = 1024 * 1024,
+            }
+
+            if not ok then
+                ngx.say("failed to connect: ", err, ": ", errcode, " ", sqlstate)
+                return
+            end
+
+            ngx.say("connected to mysql.")
+
+            local res, err, errcode, sqlstate =
+                db:query("drop table if exists cats")
+            if not res then
+                ngx.say("bad result: ", err, ": ", errcode, ": ", sqlstate, ".")
+                return
+            end
+
+            res, err, errcode, sqlstate =
+                db:query("create table cats "
+                         .. "(id serial primary key, "
+                         .. "name varchar(5))")
+            if not res then
+                ngx.say("bad result: ", err, ": ", errcode, ": ", sqlstate, ".")
+                return
+            end
+
+            ngx.say("table cats created.")
+
+            res, err, errcode, sqlstate =
+                db:query("insert into cats (name) "
+                             .. "values (\'Bob\'),(\'\'),(null)")
+            if not res then
+                ngx.say("bad result: ", err, ": ", errcode, ": ", sqlstate, ".")
+                return
+            end
+
+            ngx.say(res.affected_rows, " rows inserted into table cats ",
+                    "(last insert id: ", res.insert_id, ")")
+
+            -- run a select query, expected about 10 rows in
+            -- the result set:
+            res, err, errcode, sqlstate =
+                db:query("select * from cats order by id asc", 10)
+            if not res then
+                ngx.say("bad result: ", err, ": ", errcode, ": ", sqlstate, ".")
+                return
+            end
+
+            local cjson = require "cjson"
+            ngx.say("result: ", cjson.encode(res))
+
+            -- put it into the connection pool of size 100,
+            -- with 10 seconds max idle timeout
+            local ok, err = db:set_keepalive(10000, 100)
+            if not ok then
+                ngx.say("failed to set keepalive: ", err)
+                return
+            end
+
+            -- or just close the connection right away:
+            -- local ok, err = db:close()
+            -- if not ok then
+            --     ngx.say("failed to close: ", err)
+            --     return
+            -- end
+        ';
+    }
+}
+```
+
+- `db, err = mysql:new()`
+
+- `ok, err, errcode, sqlstate = db:connect(options)`
+
+  - **host**
+  - **port**
+  - **path**: the path of the unix socket file listened by the MySQL server
+  - **database**
+  - **user**
+  - **password**
+  - **charset**: `big5`, `dec8`, `cp850`, `hp8`, `koi8r`, `latin1`, `latin2`, `swe7`, `ascii`, `ujis`, `sjis`, `hebrew`, `tis620`, `euckr`, `koi8u`, `gb2312`, `greek`, `cp1250`, `gbk`, `latin5`, `armscii8`, `utf8`, `ucs2`, `cp866`, `keybcs2`, `macce`, `macroman`, `cp852`, `latin7`, `utf8mb4`, `cp1251`, `utf16`, `utf16le`, `cp1256`, `cp1257`, `utf32`, `binary`, `geostd8`, `cp932`, `eucjpms`, `gb18030`
+  - **max_packet_size**: the upper limit for the reply packets sent from the MySQL server (default to 1MB).
+  - **ssl**
+  - **ssl_verify**
+  - **pool**: the name for the MySQL connection pool
+  - **pool_size**: 连接池大小
+  - **backlog**: 连接池等待队列
+  - **compact_arrays**: 当此选项设置为 true 时，query 和 read_result 方法将返回结果集的数组数组结构，而不是默认的哈希数组结构。
+
+- `db:set_timeout(time)`
+
+  为后续所有的操作设置超时时间，包括connect，毫秒计数。
+
+- `ok, err = db:set_keepalive(max_idle_timeout, pool_size)`
+
+  设置connect idle timeout，毫秒计数。In case of success, returns `1`. In case of errors, returns `nil` with a string describing the error.
+
+- `times, err = db:get_reused_times()`
+
+  返回当前连接的重用次数。In case of errors, returns `nil` with a string describing the error.
+
+- `ok, err = db:close()`
+
+  In case of success, returns `1`. In case of errors, returns `nil` with a string describing the error.
+
+- `res, err, errcode, sqlstate = db:query(query)`
+
+- `res, err, errcode, sqlstate = db:query(query, nrows)`
+
+  可以在query中执行insert、delete等其他操作
+
+  You should always check if the `err` return value is `again` in case of success
+  
 
 ### LuaRestyRedisLibrary
 
+[Reference](https://github.com/openresty/lua-resty-redis)
+
+```nginx
+# you do not need the following line if you are using
+# the OpenResty bundle:
+lua_package_path "/path/to/lua-resty-redis/lib/?.lua;;";
+
+server {
+    location /test {
+        content_by_lua_block {
+            local redis = require "resty.redis"
+            local red = redis:new()
+
+            red:set_timeouts(1000, 1000, 1000) -- 1 sec
+
+            -- or connect to a unix domain socket file listened
+            -- by a redis server:
+            --     local ok, err = red:connect("unix:/path/to/redis.sock")
+
+            local ok, err = red:connect("127.0.0.1", 6379)
+            if not ok then
+                ngx.say("failed to connect: ", err)
+                return
+            end
+                
+            local res, err = red:auth("foobared")
+    		if not res then
+        		ngx.say("failed to authenticate: ", err)
+        		return
+    		end
+
+            ok, err = red:set("dog", "an animal")
+            if not ok then
+                ngx.say("failed to set dog: ", err)
+                return
+            end
+
+            ngx.say("set result: ", ok)
+
+            local res, err = red:get("dog")
+            if not res then
+                ngx.say("failed to get dog: ", err)
+                return
+            end
+
+            if res == ngx.null then
+                ngx.say("dog not found.")
+                return
+            end
+
+            ngx.say("dog: ", res)
+
+            red:init_pipeline()
+            red:set("cat", "Marry")
+            red:set("horse", "Bob")
+            red:get("cat")
+            red:get("horse")
+            local results, err = red:commit_pipeline()
+            if not results then
+                ngx.say("failed to commit the pipelined requests: ", err)
+                return
+            end
+
+            for i, res in ipairs(results) do
+                if type(res) == "table" then
+                    if res[1] == false then
+                        ngx.say("failed to run command ", i, ": ", res[2])
+                    else
+                        -- process the table value
+                    end
+                else
+                    -- process the scalar value
+                end
+            end
+
+            -- put it into the connection pool of size 100,
+            -- with 10 seconds max idle time
+            local ok, err = red:set_keepalive(10000, 100)
+            if not ok then
+                ngx.say("failed to set keepalive: ", err)
+                return
+            end
+
+            -- or just close the connection right away:
+            -- local ok, err = red:close()
+            -- if not ok then
+            --     ngx.say("failed to close: ", err)
+            --     return
+            -- end
+        }
+    }
+}
+```
+
+- `red, err = redis:new()`
+
+- `ok, err = red:connect(host, port, options_table?)`
+
+- `ok, err = red:connect("unix:/path/to/unix.sock", options_table?)`
+
+  - ssl
+  - ssl_verify
+  - server_name
+  - pool
+  - pool_size
+  - backlog
+
+- `red:set_timeout(time)`
+
+- `red:set_timeouts(connect_timeout, send_timeout, read_timeout)`
+
+  为后续所有的操作设置超时时间，包括connect，毫秒计数。
+
+- `res, err = red:auth("foobared")`
+
+- `ok, err = red:set_keepalive(max_idle_timeout, pool_size)`
+
+- `times, err = red:get_reused_times()`
+
+- `ok, err = red:close()`
+
+- `red:hmset(myhash, field1, value1, field2, value2, ...)`
+
+- `hash = red:array_to_hash(array)`
+
 ### LuaRestyStringLibrary
+
+[Reference](https://github.com/openresty/lua-resty-string)
 
 ### LuaRestyUploadLibrary
 
+[Reference](https://github.com/openresty/lua-resty-upload)
+
 ### LuaRestyUpstreamHealthcheckLibrary
+
+[Reference](https://github.com/openresty/lua-resty-upstream-healthcheck)
 
 ### LuaRestyWebSocketLibrary
 
+[Reference](https://github.com/openresty/lua-resty-websocket)
+
 ### LuaRestyLimitTrafficLibrary
 
+[Reference](https://github.com/openresty/lua-resty-limit-traffic)
+
 ### LuaRestyCookie
+
+[Reference](https://github.com/cloudflare/lua-resty-cookie)

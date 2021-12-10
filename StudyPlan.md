@@ -47,15 +47,27 @@
 
 ## Partation 06
 
+- docker 
+- k8s
+
+## Partation 07
+
 - 时间：2021.12.27～2022.01.09
 - C++
   - shell工具链
   - C++工具链
   - 操作系统
 
-## Partation 07
+## Partation 08
 
 - 时间：2021.12.27～2022.01.02
 - Golang
   - 纯粹的golang基础
+
+## Plans
+
+- zk
+- etcd
+- cassandra
+- es
 

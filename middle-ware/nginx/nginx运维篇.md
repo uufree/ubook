@@ -299,6 +299,7 @@ Default:	tcp_nodelay on;
 Context:	http, server, location
 
 # 自定义DNS服务地址
+# 做正向代理时，需要配置这个DNS，用作域名解析
 Syntax:		resolver address ... [valid=time] [ipv6=on|off] [status_zone=zone];
 Default:	—
 Context:	http, server, location
