@@ -44,11 +44,15 @@
 
 - 时间：2021.12.13～2021.12.26
 - Mysql
+  - 《Mysql必知必会》
+  - 《Innodb存储引擎》
+  - 《数据密集型应用系统设计》
 
 ## Partation 06
 
 - docker 
 - k8s
+- 云原生
 
 ## Partation 07
 

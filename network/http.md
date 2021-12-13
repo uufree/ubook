@@ -4,7 +4,105 @@
 
 ## Method
 
+- **CONNECT**
 
+  开启一个客户端与所请求资源之间的双向沟通的通道。
+
+  ```
+  CONNECT server.example.com:80 HTTP/1.1
+  Host: server.example.com:80
+  Proxy-Authorization: basic aGVsbG86d29ybGQ=
+  ```
+
+- **DELETE**
+
+  删除指定的资源
+
+  ```
+  DELETE /file.html HTTP/1.1
+  ```
+
+- **GET**
+
+  获取指定资源
+
+  ```
+  GET /index.html
+  ```
+
+- **HEAD**
+
+  获取请求资源的metadata
+
+  ```
+  HEAD /index.html
+  ```
+
+- **OPTIONS**
+
+  获取资源支持的请求方法
+
+  ```
+  OPTIONS /index.html HTTP/1.1
+  ```
+
+- **PATCH**
+
+  对资源进行部分修改
+
+  ```
+  PATCH /file.txt HTTP/1.1
+  ```
+
+- **POST**
+
+  发送数据给服务器，由`Content-Type`指定发送的数据类型
+
+  ```
+  # post 1
+  POST / HTTP/1.1
+  Host: foo.com
+  Content-Type: application/x-www-form-urlencoded
+  Content-Length: 13
+  
+  say=Hi&to=Mom
+  
+  
+  # post 2
+  POST /test.html HTTP/1.1
+  Host: example.org
+  Content-Type: multipart/form-data;boundary="boundary"
+  
+  --boundary
+  Content-Disposition: form-data; name="field1"
+  
+  value1
+  --boundary
+  Content-Disposition: form-data; name="field2"; filename="example.txt"
+  
+  value2
+  ```
+
+- **PUT**
+
+  创建或者替换目标资源
+
+  ```
+  PUT /new.html HTTP/1.1
+  Host: example.com
+  Content-type: text/html
+  Content-length: 16
+  
+  <p>New File</p>
+  ```
+
+- **TRACE**
+
+  获取数据发往服务器的过程中，通过的IP节点
+
+  ```
+  TRACE /index.html
+  ```
 
 ## Header
 
@@ -451,7 +549,145 @@
 
 ## Response Code
 
+### 10X
+
+服务器收到请求，需要请求者继续执行操作
+
+- 100：表示目前为止一切正常, 客户端应该继续请求
+- 101：表示服务器应客户端升级协议的请求，正在切换协议
+
+### 20X
+
+操作被成功接收并处理
+
+- 200：表明请求已经成功
+- 201：表示请求已经被成功处理，并且创建了新的资源
+- 202：表示服务器端已经收到请求消息，但是尚未进行处理。
+- 203：请求成功，但返回的meta信息不在原始的服务器，而是一个副本
+- 204：服务器成功处理，但未返回内容
+- 205：服务器处理成功，用户终端（例如：浏览器）应重置文档视图
+- 206：表示请求已成功，并且主体包含所请求的数据区间，该数据区间是在请求的Range首部指定的
+
+### 30X
+
+重定向，需要进一步的操作以完成请求
+
+- 300：表示重定向的响应状态码，表示该请求拥有多种可能的响应。如果服务器提供优先选择，就应该生成一个**Location**头部
+- 301：表示请求的资源已经被**永久移动**到**Location**头部指定的URL上。在某些客户端，重定向方法会被修改为GET。
+- 302：表示请求的资源已经被**临时移动**到**Location**头部指定的URL上。在某些客户端，重定向方法会被修改为GET。
+- 303：在POST或PUT操作时返回，表示请求的URL已经存在别的资源。
+- 304：表示服务端无须再次传输请求的内容，允许客户端使用缓存的内容
+- 307：表示请求的资源已经被**临时移动**到**Location**头部指定的URL上，重定向方法不会改变。
+- 308：表示请求的资源已经被**永久移动**到**Location**头部指定的URL上，重定向方法不会改变。
+
+### 40X
+
+客户端错误，请求包含语法错误或无法完成请求
+
+- 400：表示由于语法无效，服务器无法理解该请求
+- 401：表示缺乏目标资源要求的身份验证凭证
+- 403：表示服务器端有能力处理该请求，但是拒绝授权访问
+- 404：表示服务器端无法找到所请求的资源
+- 405：表明服务器禁止了使用当前 HTTP 方法的请求
+- 407：表示缺少位于浏览器和代理服务器之间要求的身份凭证
+- 408：表示请求超时
+- 409：表示请求与服务器端目标资源的当前状态相冲突
+- 410：表明请求的目标资源在原服务器上不存在了，并且是永久性的丢失
+- 411：缺少Content-Length字段，服务器拒绝客户端请求
+- 412：Precondition Failed
+- 413：Payload Too Large
+- 414：URI Too Long
+- 415：Unsupported Media Type
+- 416：表示服务器无法处理所请求的数据区间
+- 417：表示服务器无法满足请求头中Expect字段描述的信息
+- 422：表示服务器理解请求实体的内容类型，并且请求实体的语法是正确的，但是服务器无法处理请求指令
+- 425：Too Early
+- 426：表示服务器拒绝处理客户端使用当前协议发送的请求，但是可以接受其使用升级后的协议发送的请求。
+- 428：Precondition Required
+- 429：表示在一定的时间内用户发送了太多的请求，可以用Retry-After提示用户需要等待多长时间才能继续发送请求
+- 431：Request Header Fields Too Large
+
+### 50X
+
+服务器错误，服务器在处理请求的过程中发生了错误
+
+- 500：Internal Server Error
+- 501：Not Implemented
+- 502：Bad Gateway
+- 503：表示服务器尚未处于可以接受请求的状态
+- 504：Gateway Timeout
+- 505：HTTP Version Not Supported
+- 506：Variant Also Negotiates
+- 507：表示服务器不能存储相关内容
+- 508：表示服务器中断一个操作，整个操作失败
+- 510：Not Extended
+- 511：Network Authentication Required
+
 ## MIME
+
+| 类型        | 描述                         | 实例                                                         |
+| ----------- | ---------------------------- | ------------------------------------------------------------ |
+| text        | 表明文件是普通文本           | text/plain, text/html, text/css, text/javascript             |
+| image       | 表明是某种图像               | image/gif, image/png, image/jpeg, image/bmp, image/webp, image/x-icon, image/vnd.microsoft.icon |
+| audio       | 表明是某种音频文件           | audio/midi, audio/mpeg, audio/webm, audio/ogg, audio/wav     |
+| video       | 表明是某种视频文件           | video/webm`, `video/ogg                                      |
+| application | 表明是某种二进制数据         | application/octet-stream, application/pkcs12, application/vnd.mspowerpoint, application/xhtml+xml, application/xml, application/pdf, application/json |
+| multipart   | 表示细分领域的文件类型的种类 | multipart/form-data, multipart/byteranges                    |
+
+常用的的MIME类型解释如下：
+
+- `application/octet-stream`：这是应用程序文件的默认值。表示未知的应用程序文件，浏览器不可以展示
+
+- `text/plain`：文本文件默认值。表示未知的文本文件，浏览器可以展示
+
+- `application/json`：表示json类型
+
+- `multipart/form-data`：表单格式，常用于上传多文档
+
+  ```html
+  Content-Type: multipart/form-data; boundary=aBoundaryString
+  (other headers associated with the multipart document as a whole)
+  
+  --aBoundaryString
+  Content-Disposition: form-data; name="myFile"; filename="img.jpg"
+  Content-Type: image/jpeg
+  
+  (data)
+  --aBoundaryString
+  Content-Disposition: form-data; name="myField"
+  
+  (data)
+  --aBoundaryString
+  (more subparts)
+  --aBoundaryString--
+  ```
+
+- `multipart/byteranges`：文件分段
+
+  ```
+  HTTP/1.1 206 Partial Content
+  Accept-Ranges: bytes
+  Content-Type: multipart/byteranges; boundary=3d6b6a416f9b5
+  Content-Length: 385
+  
+  --3d6b6a416f9b5
+  Content-Type: text/html
+  Content-Range: bytes 100-200/1270
+  
+  eta http-equiv="Content-type" content="text/html; charset=utf-8" />
+      <meta name="vieport" content
+  --3d6b6a416f9b5
+  Content-Type: text/html
+  Content-Range: bytes 300-400/1270
+  
+  -color: #f0f0f2;
+          margin: 0;
+          padding: 0;
+          font-family: "Open Sans", "Helvetica
+  --3d6b6a416f9b5--
+  ```
+
+- `application/x-www-form-urlencoded`：发送`GET`请求时，请求数据被编码成以`&`分割的键值对
 
 ## Reference
 
