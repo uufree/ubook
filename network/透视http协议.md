@@ -215,6 +215,68 @@ HTTP Header非常灵活，不仅可以使用标准中的Header，还可以使用
 
 ## 进阶篇
 
+### HTTP Body
+
+对于Body中数据的具体类型，需要在Request和Response中进行协商：
+
+- Request Header
+
+  - **Accept**：表示客户端可以理解的MIME TYpe
+
+    ```
+    Accept: text/html,application/xml,image/webp,image/png
+    ```
+
+  - **Accept-Encoding**：表示客户端可以支持的压缩格式
+
+    ```
+    Accept-Encoding: gzip, deflate, br
+    ```
+
+  - **Accept-Language**：表示客户端可以理解的语言种类
+
+    ```
+    Accept-Language: zh-CN, zh, en
+    ```
+
+  - **Accept-Charset**：表示客户端支持的字符集
+
+    ```
+    Accept-Charset: gbk, utf-8
+    ```
+
+- Response Header
+
+  - **Content-Type**：表示服务端发送的MIME类型
+
+    ```
+    Content-Type: image/png
+    ```
+
+  - **Content-Length**：表示body大小
+
+    ```
+    Content-Length: 92
+    ```
+
+  - **Content-Encoding**：表示服务端发送数据的编码类型
+
+    ```
+    Content-Encoding: gzip
+    ```
+
+  - **Content-Language**：表示实体数据使用的语言类型
+
+    ```
+    Content-Language: zh-CN
+    ```
+
+  - **Content-Disposition**：表示实体数据的展示方式
+
+    ```
+    Content-Disposition: attachment; filename="filename.jpg"
+    ```
+
 ## 安全篇
 
 ## 飞翔篇

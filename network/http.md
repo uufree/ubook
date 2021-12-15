@@ -531,6 +531,19 @@
 
   指示资源的MIME类型
 
+- **Content-Disposition**
+
+  指示回复的内容该以何种形式展示，是以**内联**的形式还是以**附件**的形式下载到本地。可选：
+
+  - `inline`：默认值，表示Body会以页面的一部分或者整个页面展示
+  - `attachment`：表示Body中的内容会被下载到本地
+
+  ```
+  Content-Disposition: inline
+  Content-Disposition: attachment
+  Content-Disposition: attachment; filename="filename.jpg"
+  ```
+
 - **Expires**
 
   指定资源相当于**Date**的过期时间
