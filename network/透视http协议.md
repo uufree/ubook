@@ -215,7 +215,7 @@ HTTP Header非常灵活，不仅可以使用标准中的Header，还可以使用
 
 ## 进阶篇
 
-### HTTP Body
+### 内容协商(Body)
 
 对于Body中数据的具体类型，需要在Request和Response中进行协商：
 
@@ -277,7 +277,406 @@ HTTP Header非常灵活，不仅可以使用标准中的Header，还可以使用
     Content-Disposition: attachment; filename="filename.jpg"
     ```
 
+### 大文件传输
+
+HTTP大文件传输一共有两种方式：
+
+1. 数据压缩
+2. **分块传输**
+
+在Response Header中，**Transfer-Encoding: chunked**和**Content-Length**这两个字段是互斥的，也就是说响应报文中不能同时处理这两个字段。
+
+#### 分块传输
+
+分块传输的编码规则如下：
+
+1. 每个分块包含两个部分，长度头和数据块；
+2. 长度头是以 CRLF（回车换行，即 `\r\n` ）结尾的一行明文，用 16 进制数字表示长度；
+3. 数据块紧跟在长度头后，最后也用 CRLF 结尾，但数据不包含 CRLF；
+4. 最后用一个长度为 0 的块表示结束，即 `0\r\n\r\n`
+
+![](assets/25e7b09cf8cb4eaebba42b4598192410.25e7b09c.png)
+
+#### 范围请求
+
+HTTP允许客户端在请求头里使用专用字段来表示只获取文件的一部分，但是范围请求不是 Web 服务器必备的功能，可以实现也可以不实现。
+
+- 支持：在Response Header中添加**Accept-Ranges: bytes**
+- 不支持：在Response Header中添加**Accept-Ranges: none**，或者干脆不发送这个字段
+
+同时，如果客户端使用范围请求能力的话，需要显式的在Request Header中添加**Range: bytes=1-100**。Range的语法非常灵活，例如：
+
+```
+0-	：	文档起点到文档终点
+10-	：	文档第10个字节到文档终点
+-1	：	文档最后1个字节
+-10	：	文档末尾倒数10个字节
+```
+
+服务端收到**Range**字段后，需要做以下几件事情：
+
+1. 检查范围是否合法，不合法返回状态码**416**（范围请求有误，无法处理）
+2. 范围正确，返回状态码**206**（Partial Content）
+3. Response Header需要添加一个响应Header字段**Content-Range: bytes x-y/length**，其中length表示资源的大小
+
+完整的请求流程如下：
+
+```
+---request begin---
+GET /1.mp4 HTTP/1.1
+User-Agent: Wget/1.17.1 (linux-gnu)
+Accept: */*
+Accept-Encoding: identity
+Host: localhost
+Connection: Keep-Alive
+Range: bytes=1-100
+
+---request end---
+HTTP request sent, awaiting response... 
+---response begin---
+HTTP/1.1 206 Partial Content
+Server: openresty/1.19.9.1
+Date: Thu, 16 Dec 2021 11:45:35 GMT
+Content-Type: video/mp4
+Content-Length: 100
+Last-Modified: Sun, 05 Dec 2021 08:34:05 GMT
+Connection: keep-alive
+ETag: "61ac797d-47f985a"
+Content-Range: bytes 1-100/75470938
+
+```
+
+#### 多段范围请求
+
+HTTP支持在**Range**中使用多个`x-y`，一次性获取多个数据片段。这种情况下，Response Header使用了一种特殊的 MIME 类型：**multipart/byteranges**，表示报文的 body 是由多段字节序列组成的，并且还要用一个参数 **boundary=xxx** 给出段之间的分隔标记。Body格式如下：
+
+![](assets/fffa3a65e367c496428f3c0c4dac8a37.fffa3a65-1639655770349.png)
+
+完整的请求流程如下：
+
+```
+---request begin---
+GET /1.mp4 HTTP/1.1
+User-Agent: Wget/1.17.1 (linux-gnu)
+Accept: */*
+Accept-Encoding: identity
+Host: localhost
+Connection: Keep-Alive
+Range: bytes=1-100,101-200
+
+---request end---
+HTTP request sent, awaiting response... 
+---response begin---
+HTTP/1.1 206 Partial Content
+Server: openresty/1.19.9.1
+Date: Thu, 16 Dec 2021 11:54:09 GMT
+Content-Type: multipart/byteranges; boundary=00000000000000000001
+Content-Length: 410
+Last-Modified: Sun, 05 Dec 2021 08:34:05 GMT
+Connection: keep-alive
+ETag: "61ac797d-47f985a"
+```
+
+### 连接管理
+
+#### 长、短连接
+
+![](assets/57b3d80234a1f1b8c538a376aa01d3b4.57b3d802.png)
+
+因为 TCP 协议还有慢启动、拥塞窗口等特性，通常新建立的「冷链接」会比打开了一段时间的「热连接」要慢一些，所以长链接比短连接还多了这一层优势。
+
+#### 队头阻塞
+
+队头阻塞和长短连接无关，是由HTTP基础的请求-应答模型导致的。
+
+![](assets/6a6d30a89fb085d5f1773a887aaf5572.6a6d30a8.png)
+
+HTTP 1.0/1.1解决对头阻塞的思路是：**允许浏览器对同一个域名发起多个长连接**，用数量来解决阻塞问题。
+
+### 重定向和跳转
+
+完整的重定向工作流：
+
+```
+---request begin---
+GET /hello HTTP/1.1
+User-Agent: Wget/1.17.1 (linux-gnu)
+Accept: */*
+Accept-Encoding: identity
+Host: localhost
+Connection: Keep-Alive
+
+---request end---
+HTTP request sent, awaiting response... 
+---response begin---
+HTTP/1.1 307 Temporary Redirect
+Server: openresty/1.19.9.1
+Date: Fri, 17 Dec 2021 03:21:34 GMT
+Content-Type: text/html
+Content-Length: 177
+Connection: keep-alive
+Location: http://wwww.baidu.com/hello
+
+---request begin---
+GET /hello HTTP/1.1
+User-Agent: Wget/1.17.1 (linux-gnu)
+Accept: */*
+Accept-Encoding: identity
+Host: www.baidu.com
+Connection: Keep-Alive
+
+---request end---
+HTTP request sent, awaiting response... 
+---response begin---
+HTTP/1.1 404 Not Found
+Content-Length: 203
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 17 Dec 2021 03:21:34 GMT
+Server: Apache
+```
+
+可以看到，请求中有两组请求应答，分别对应原始的请求和重定向的请求。重定向的URI会存放在**Location**字段中。
+
+### Cookie
+
+Cookie可以将无状态的HTTP转化为有状态的服务。需要用到两个字段：响应头字段**Set-Cookie**和请求头字段**Cookie**。交互流程如下所示：
+
+![](assets/9f6cca61802d65d063e24aa9ca7c38a4.9f6cca61.png)
+
+Cookie是服务器委托浏览器存储用户的一些数据，这些数据会记录用户的关键识别信息。为了保证Cookie的安全性，需要在Cookie上添加一些属性：
+
+- 生命周期
+  - **Expires**：过期时间，是一个绝对时间点
+  - **Max-Age**：过期时间，相对时间点，单位秒。
+- 作用域
+  - **Domain**：限制Cookie域名
+  - **Path**：限制路径
+- 安全性
+  - **HttpOnly**：仅浏览器可用，防止JS脚本篡改内容
+  - **SameSite=Strict**：严格限定Cookie 不能随着跳转链接跨站发送。防止跨站请求伪造攻击
+  - **SameSite=Lax**：允许 `GET/HEAD` 等安全方法，但禁止`POST`跨站发送
+  - **SameSite=None**：不限制
+  - **Secure**：表示这个Cookie仅能用HTTPS协议加密传输，明文的HTTP协议会被禁止发送
+
+请求实例如下：
+
+```
+---request begin---
+GET /login HTTP/1.1
+User-Agent: Wget/1.17.1 (linux-gnu)
+Accept: */*
+Accept-Encoding: identity
+Host: localhost
+Connection: Keep-Alive
+
+---request end---
+HTTP request sent, awaiting response... 
+---response begin---
+HTTP/1.1 200 OK
+Server: openresty/1.19.9.1
+Date: Fri, 17 Dec 2021 09:08:36 GMT
+Content-Type: text/plain
+Transfer-Encoding: chunked
+Connection: keep-alive
+Set-Cookie: SessionID=1; Max-Age=10; Domain=localhost; Path=/; HttpOnly; SameSite=Strict
+```
+
+Cookie的缺点：
+
+1. 不安全，被拦截之后，很轻易的就会被伪造
+2. 有数量和大小的限制
+3. 某些客户端不支持Cookie
+
+### 浏览器缓存
+
+浏览器缓存主要依赖于**Cache-Control**，可出现在Request和Response中。可选以下值：
+
+- **max-age**：资源的有效时间，单位秒。从服务端创建响应报文开始计算
+- **no_store**：不允许浏览器缓存数据
+- **no_cache**：可以缓存，但是使用之前必须要去服务器验证资源是否过期
+- **must-revalidate**：如果缓存不过期就可以继续使用 ，但过期了如果还想用就必须去服务器验证
+
+Request Header存在一组缓存验证字段，例如：
+
+- **If-Modified-Since**：和Response.Header.Last-modified 对比，是否已经修改了
+- **If-None-Match**：和Response.Header.ETag 对比，是否已经修改了
+- **If-Unmodified-Since**：和Response.Header.Last-modified 对比，是否未修改了
+- **If-Match**：和Response.Header.ETag 对比，是否未修改了
+- **If-Range**：未使用过
+
+如果资源未出现改动，服务器就回应一个**304 Not Modified**，表示缓存依然有效。
+
+ETag 是 **实体标签（Entity Tag）** 的缩写，**是资源的一个唯一标识** ，主要是用来解决修改时间无法准确区分文件变化的问题。
+
+缓存请求流程如下：
+
+```
+---request begin---
+Accept-Encoding: gzip, deflate, br
+Accept-Language: en-US,en;q=0.9
+Cache-Control: no-cache
+Connection: keep-alive
+Host: localhost
+
+---response begin---
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Connection: keep-alive
+Content-Length: 911408
+Content-Type: image/jpeg
+Date: Sun, 19 Dec 2021 10:12:14 GMT
+ETag: "61bf056d-de830"
+Last-Modified: Sun, 19 Dec 2021 10:11:57 GMT
+Server: openresty/1.19.9.1
+```
+
+### HTTP Proxy
+
+![](assets/28237ef93ce0ddca076d2dc19c16fdf9.28237ef9.png)
+
+代理可以执行以下事情：
+
+- 负载均衡
+- 健康检查：使用**心跳**等机制监控后端服务器，发现有故障就及时**踢出**集群，保证服务高可用
+- 安全防护：保护被代理的后端服务器，限制 IP 地址或流量，抵御网络攻击和过载
+- 加密卸载：对外网使用 SSL/TLS 加密通信认证，而在安全的内网不加密，消除加解密成本
+- 数据过滤：拦截上下行的数据，任意指定策略修改请求或者响应
+- 内容缓存
+
+与代理相关的Header：
+
+- **X-Forwarded-For**
+- **X-Forwarded-Host**
+- **X-Forwarded-Proto**
+- **X-Real-IP**
+
+详细的解释，详见HTTP.md
+
 ## 安全篇
+
+通常，如果通信过程具备了四个特性，就可以认为通信是安全的，这四个特性分别是：
+
+- **机密性**：数据是保密的，只能由可信的人才能看到
+- **完整性**：数据在传输过程中无法被篡改
+- **身份认证**：确认对方的真实身份，消息仅发送给可信的人
+- **不可否认**：不能否认已经发送过的数据
+
+HTTPS为HTTP增加了上述的四大安全特性，默认采用**443**端口，请求方式与HTTP基本一致。
+
+![](assets/50d57e18813e18270747806d5d73f0a3.50d57e18.png)
+
+浏览器和服务器在使用TLS建立连接时，需要选择一组恰当的加密算法来实现安全通信。这一组算法被称为**加密套件**（**Cipher Suite**）。例如：
+
+```
+suite 0: ECDHE-ECDSA-AES256-GCM-SHA384
+suite 1: ECDHE-RSA-AES256-GCM-SHA384
+suite 2: DHE-RSA-AES256-GCM-SHA384
+suite 3: ECDHE-ECDSA-CHACHA20-POLY1305
+suite 4: ECDHE-RSA-CHACHA20-POLY1305
+suite 5: DHE-RSA-CHACHA20-POLY1305
+suite 6: ECDHE-ECDSA-AES128-GCM-SHA256
+suite 7: ECDHE-RSA-AES128-GCM-SHA256
+suite 8: DHE-RSA-AES128-GCM-SHA256
+suite 9: ECDHE-ECDSA-AES256-SHA384
+suite 10: ECDHE-RSA-AES256-SHA384
+suite 11: DHE-RSA-AES256-SHA256
+suite 12: ECDHE-ECDSA-AES128-SHA256
+suite 13: ECDHE-RSA-AES128-SHA256
+suite 14: DHE-RSA-AES128-SHA256
+suite 15: ECDHE-ECDSA-AES256-SHA
+suite 16: ECDHE-RSA-AES256-SHA
+suite 17: DHE-RSA-AES256-SHA
+suite 18: ECDHE-ECDSA-AES128-SHA
+suite 19: ECDHE-RSA-AES128-SHA
+suite 20: DHE-RSA-AES128-SHA
+suite 21: RSA-PSK-AES256-GCM-SHA384
+suite 22: DHE-PSK-AES256-GCM-SHA384
+suite 23: RSA-PSK-CHACHA20-POLY1305
+suite 24: DHE-PSK-CHACHA20-POLY1305
+suite 25: ECDHE-PSK-CHACHA20-POLY1305
+suite 26: AES256-GCM-SHA384
+suite 27: PSK-AES256-GCM-SHA384
+suite 28: PSK-CHACHA20-POLY1305
+suite 29: RSA-PSK-AES128-GCM-SHA256
+suite 30: DHE-PSK-AES128-GCM-SHA256
+suite 31: AES128-GCM-SHA256
+suite 32: PSK-AES128-GCM-SHA256
+suite 33: AES256-SHA256
+suite 34: AES128-SHA256
+suite 35: ECDHE-PSK-AES256-CBC-SHA384
+suite 36: ECDHE-PSK-AES256-CBC-SHA
+suite 37: SRP-RSA-AES-256-CBC-SHA
+suite 38: SRP-AES-256-CBC-SHA
+suite 39: RSA-PSK-AES256-CBC-SHA384
+suite 40: DHE-PSK-AES256-CBC-SHA384
+suite 41: RSA-PSK-AES256-CBC-SHA
+suite 42: DHE-PSK-AES256-CBC-SHA
+suite 43: AES256-SHA
+suite 44: PSK-AES256-CBC-SHA384
+suite 45: PSK-AES256-CBC-SHA
+suite 46: ECDHE-PSK-AES128-CBC-SHA256
+suite 47: ECDHE-PSK-AES128-CBC-SHA
+suite 48: SRP-RSA-AES-128-CBC-SHA
+suite 49: SRP-AES-128-CBC-SHA
+suite 50: RSA-PSK-AES128-CBC-SHA256
+suite 51: DHE-PSK-AES128-CBC-SHA256
+suite 52: RSA-PSK-AES128-CBC-SHA
+suite 53: DHE-PSK-AES128-CBC-SHA
+suite 54: AES128-SHA
+suite 55: PSK-AES128-CBC-SHA256
+suite 56: PSK-AES128-CBC-SHA
+```
+
+TLS密码套件的命名非常规范，格式很固定。基本形式为：**密钥交换算法 - 签名算法 - 对称加密算法 - 摘要算法**。例如`ECDHE-RSA-AES256-GCM-SHA384`的意思是：
+
+- 握手时使用 ECDHE 算法进行密钥交换
+- 用 RSA 签名和身份认证
+- 握手后的通信使用 AES 对称算法，密钥长度 256 位
+- 分组模式是 GCM
+- 摘要算法 SHA384 用于消息认证和产生随机数
+
+### 机密性
+
+#### 对称加密
+
+加密和解密的密钥是同一个，是对称的。常用的对称加密算法有：**AES**、**ChaCha20**
+
+![](assets/8feab67c25a534f8c72077680927ab49.8feab67c.png)
+
+对称算法有一个分组模式的概念，**可以让算法用固定长度的密钥加密任意长度的明文**。常用的分组算法有：**GCM**、**CCM** 和 **Poly1305**。
+
+因此，对称加密的全称是`AES128-GCM`这样子。
+
+#### 非对称加密
+
+对称加密存在一个很严重的问题，即：**如何把密钥安全的传递给对方**。所以，就出现了非对称加密。它有两个密钥，一个叫 **公钥**（public key），一个叫 **私钥**（private key）。**两个密钥是不同的（不对称）** ，公钥可以公开给任何人使用，而私钥必须严格保密。
+
+公钥和私钥有个特别的**单向**性，虽然都可以用来加密解密，但**公钥加密后只能用私钥解密** ，反过来，**私钥加密后也只能用公钥解密** 。
+
+![](assets/89344c2e493600b486d5349a84318417.89344c2e.png)
+
+常用的非对称加密算法有：**DH**、**DSA**、**RSA**、**ECC**等。
+
+#### 混合加密
+
+RSA（非对称） 的运算速度是非常慢的，2048 位的加解密大约是 15KB/S（微秒或毫秒级）；AES128（对称）则是 13MB/S（纳秒级）。两者的计算速度相差几百倍。
+
+混合加密就是把对称和非对称两种加密方式结合起来，大概的流程为：
+
+1. 在通信刚开始的时候，客户端使用非对称算法 ，比如 RSA、ECDHE等。**获取非对称公钥**
+2. 然后客户端用随机数产生**对称公钥**，并用**非对称公钥**进行加密
+3. 服务端拿到密文后，用**非对称私钥**进行解密，获取**对称公钥**。
+4. 之后所有的通信，都使用**对称公钥**进行。
+
+![](assets/e41f87110aeea3e548d58cc35a478e85.e41f8711.png)
+
+### 完整性
+
+实现完整性的手段主要是**摘要算法**，可以将其理解为单向加密算法，无法从指纹逆推原文。常用的摘要算法有**MD5**、**SHA224**、**SHA256**、**SHA384**等。
+
+### 身份认证
+
+### 不可否认
 
 ## 飞翔篇
 
