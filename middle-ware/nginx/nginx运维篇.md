@@ -782,20 +782,41 @@ location = /test4 {
 Syntax:		ssl on | off;
 Default:	ssl off;
 Context:	http, server
+Samples:  需要在listen后面写ssl就可
 
-# pem file
+# 证书文件
 Syntax:		ssl_certificate file;
 Default:	—
 Context:	http, server
 
-# key file
+# 证书对应的密钥
 Syntax:		ssl_certificate_key file;
 Default:	—
 Context:	http, server
 
-# 指定密码格式
+# 支持的加密套件列表
 Syntax:		ssl_ciphers ciphers;
 Default:	ssl_ciphers HIGH:!aNULL:!MD5;
+Context:	http, server
+
+# 优先选用服务端的加密套件
+Syntax:		ssl_prefer_server_ciphers on | off;
+Default:	ssl_prefer_server_ciphers off;
+Context:	http, server
+
+# TLS Session会话复用。一般不选用这种方式
+Syntax:		ssl_session_cache off | none | [builtin[:size]] [shared:name:size];
+Default:	ssl_session_cache none;
+Context:	http, server
+
+# TLS Ticket会话复用。最好选用这种方式
+Syntax:		ssl_session_tickets on | off;
+Default:	ssl_session_tickets on;
+Context:	http, server
+
+# 会话超时时间
+Syntax:		ssl_session_timeout time;
+Default:	ssl_session_timeout 5m;
 Context:	http, server
 
 # Samples

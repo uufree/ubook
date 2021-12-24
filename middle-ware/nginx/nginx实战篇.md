@@ -106,6 +106,10 @@
      sudo lsof -p 30614 | grep TCP
      ```
 
+## 重定向
+
+详见deploy/configs/redirect.conf
+
 ## 静态资源
 
 详见deploy/configs/resource.conf
@@ -118,7 +122,15 @@
 
 ## 大文件传输
 
+**chunked**: 详见deploy/configs/load-balancing.conf、deploy/http-demo/server.go
+
+**content-length**: 详见deploy/configs/bigfile.conf
+
 ## 断点续传
+
+### 上传
+
+### 下载
 
 ## HTTPS
 
@@ -130,7 +142,15 @@
 
 ### 认证
 
-### 鉴权
+#### session + cookie
+
+#### token
+
+### 权限
+
+#### 授权
+
+#### 鉴权
 
 ### 限流
 
