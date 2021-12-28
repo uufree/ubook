@@ -799,6 +799,11 @@ Syntax:		ssl_ciphers ciphers;
 Default:	ssl_ciphers HIGH:!aNULL:!MD5;
 Context:	http, server
 
+# 限制TLS版本
+Syntax:		ssl_protocols [SSLv2] [SSLv3] [TLSv1] [TLSv1.1] [TLSv1.2] [TLSv1.3];
+Default:	ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+Context:	http, server
+
 # 优先选用服务端的加密套件
 Syntax:		ssl_prefer_server_ciphers on | off;
 Default:	ssl_prefer_server_ciphers off;
@@ -812,6 +817,11 @@ Context:	http, server
 # TLS Ticket会话复用。最好选用这种方式
 Syntax:		ssl_session_tickets on | off;
 Default:	ssl_session_tickets on;
+Context:	http, server
+
+# TLS Ticket会话复用中使用的临时文件
+Syntax:		ssl_session_ticket_key file;
+Default:	—
 Context:	http, server
 
 # 会话超时时间
@@ -830,8 +840,8 @@ http {
 
         ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;
         ssl_ciphers         AES128-SHA:AES256-SHA:RC4-SHA:DES-CBC3-SHA:RC4-MD5;
-        ssl_certificate     /usr/local/nginx/conf/cert.pem;
-        ssl_certificate_key /usr/local/nginx/conf/cert.key;
+        ssl_certificate     /usr/local/nginx/conf/cert.pem;	# 证书。公钥的签名
+        ssl_certificate_key /usr/local/nginx/conf/cert.key;	# 私钥
         ssl_session_cache   shared:SSL:10m;
         ssl_session_timeout 10m;
 

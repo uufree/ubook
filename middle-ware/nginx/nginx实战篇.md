@@ -130,11 +130,30 @@
 
 ### 上传
 
+详见deploy/http-demo/multipart-upload-client.go
+
 ### 下载
+
+详见deploy/http-demo/multipart-download-client.go
 
 ## HTTPS
 
+生成证书和私钥：
+
+```bash
+# RSA，签名算法
+openssl req -newkey rsa:2048 -nodes -keyout rsa_private.key -x509 -days 365 -out rsa_cert.crt
+
+# ECDSA，签名算法
+openssl ecparam -name secp384r1 -genkey -out ecc_private.key
+openssl req -new -key ecc_private.key -out ecc_cert.crt
+```
+
+详见deploy/configs/https.conf
+
 ## HTTP/2
+
+详见deploy/configs/https.conf
 
 ## WebSocket
 
@@ -156,3 +175,20 @@
 
 ### 熔断
 
+
+
+- gin, swagger：1
+
+- grpc及protoc系列插件：2
+
+- grpc-gateway：3
+
+- jwt：4
+
+- casbin：5
+
+- oauth2：6
+
+- websocket：7
+
+  
