@@ -3,28 +3,278 @@
     "info": {
         "contact": {}
     },
-    "basePath": "/api/v1",
     "paths": {
-        "/example/helloworld": {
+        "/get/file": {
             "get": {
-                "description": "do ping",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "获取文件",
                 "produces": [
-                    "application/json"
+                    "application/octet-stream"
                 ],
                 "tags": [
-                    "example"
+                    "GET"
                 ],
-                "summary": "ping example",
+                "summary": "获取文件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "查询ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "string"
+                            "type": "file"
                         }
                     }
+                }
+            }
+        },
+        "/get/json": {
+            "get": {
+                "description": "获取json类型的结果",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "GET"
+                ],
+                "summary": "获取json类型的结果",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "鉴权",
+                        "name": "auth",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "查询ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "名字",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "年龄",
+                        "name": "age",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "查询条件",
+                        "name": "find",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/main.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/main.GetResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/main.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/post/file": {
+            "post": {
+                "description": "发送文件的POST请求",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "POST"
+                ],
+                "summary": "发送文件的POST请求",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "文件1",
+                        "name": "file1",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "文件2",
+                        "name": "file2",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/main.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/main.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/post/formdata": {
+            "post": {
+                "description": "发送form-data的POST请求",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "POST"
+                ],
+                "summary": "发送form-data的POST请求",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "表单参数1",
+                        "name": "form1",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "post数字",
+                        "name": "form2",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "post布尔类型",
+                        "name": "form3",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/main.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/main.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/post/json": {
+            "post": {
+                "description": "发送JSON类型的POST请求",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "POST"
+                ],
+                "summary": "发送JSON类型的POST请求",
+                "parameters": [
+                    {
+                        "description": "名字",
+                        "name": "name",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "年龄",
+                        "name": "age",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "查找",
+                        "name": "look",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/main.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/main.Response"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "main.GetResponse": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "main.Response": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "msg": {
+                    "type": "string"
                 }
             }
         }

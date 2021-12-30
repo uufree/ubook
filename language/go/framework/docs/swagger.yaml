@@ -1,20 +1,183 @@
-basePath: /api/v1
+definitions:
+  main.GetResponse:
+    properties:
+      age:
+        type: integer
+      name:
+        type: string
+    type: object
+  main.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      msg:
+        type: string
+    type: object
 info:
   contact: {}
 paths:
-  /example/helloworld:
+  /get/file:
     get:
-      consumes:
-      - application/json
-      description: do ping
+      description: 获取文件
+      parameters:
+      - description: 查询ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+      summary: 获取文件
+      tags:
+      - GET
+  /get/json:
+    get:
+      description: 获取json类型的结果
+      parameters:
+      - description: 鉴权
+        in: header
+        name: auth
+        required: true
+        type: string
+      - description: 查询ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 名字
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: 年龄
+        in: query
+        name: age
+        required: true
+        type: integer
+      - description: 查询条件
+        in: query
+        name: find
+        type: boolean
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            type: string
-      summary: ping example
+            allOf:
+            - $ref: '#/definitions/main.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/main.GetResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.Response'
+      summary: 获取json类型的结果
       tags:
-      - example
+      - GET
+  /post/file:
+    post:
+      description: 发送文件的POST请求
+      parameters:
+      - description: 文件1
+        in: formData
+        name: file1
+        required: true
+        type: file
+      - description: 文件2
+        in: formData
+        name: file2
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.Response'
+      summary: 发送文件的POST请求
+      tags:
+      - POST
+  /post/formdata:
+    post:
+      description: 发送form-data的POST请求
+      parameters:
+      - description: 表单参数1
+        in: formData
+        name: form1
+        required: true
+        type: string
+      - description: post数字
+        in: formData
+        name: form2
+        required: true
+        type: integer
+      - description: post布尔类型
+        in: formData
+        name: form3
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.Response'
+      summary: 发送form-data的POST请求
+      tags:
+      - POST
+  /post/json:
+    post:
+      description: 发送JSON类型的POST请求
+      parameters:
+      - description: 名字
+        in: body
+        name: name
+        required: true
+        schema:
+          type: string
+      - description: 年龄
+        in: body
+        name: age
+        required: true
+        schema:
+          type: integer
+      - description: 查找
+        in: body
+        name: look
+        required: true
+        schema:
+          type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.Response'
+      summary: 发送JSON类型的POST请求
+      tags:
+      - POST
 swagger: "2.0"
