@@ -1,0 +1,132 @@
+/*
+protobuf优缺点：
+优点：
+  1. 性能好、效率高
+  2. 支持多语言
+  3. 前向兼容、后向兼容左右的都很好
+缺点：
+  1. 编码后的消息可读性比较差
+*/
+
+// 用于声明当前是用的proto版本
+syntax = "proto3";
+
+// 引入其他的proto文件。常用的proto类型如下所示：
+// path：/usr/local/include/google/protobuf
+// TODO: 将依赖放在同一个目录下面，或者尝试做成一个pb编译镜像
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/duration.proto";
+import "google/api/annotations.proto";
+import "protoc-gen-swagger/options/annotations.proto";
+
+// 定义proto的包名，可以避免Message之间的名称冲突，同名的Message可以通过package进行区分
+// 对golang没什么用
+// c++的话，会被转化为namespace
+// java的话，会被转化为package
+package samples.common;
+
+// c++无需使用 option cxx_package
+// 定义golang的package name，即生成文件的存放位置。建议写成："github.com/uufree/grpc_proto/api"这样子。
+option go_package = "test/api";
+
+// 生成swagger文档
+option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+  info: {
+    title: "test"
+    version: "v0.1"
+  }
+};
+
+// 每个字段都有一个唯一编号。编号决定了字段在消息中的位置，影响是否可以前向兼容、后向兼容
+message AllTypes {
+  // reserved用来指明此message不使用某些字段，也就是忽略这些字段。也可以用来指定保留字段
+  reserved 7, 8;
+  reserved 9 to 10;
+  reserved "sfixed32", "sfixed64";
+
+  double double = 1;  //长度数字类型
+  float float = 2;
+  int32 int32 = 3;
+  int64 int64 = 4;
+  uint32 uint32 = 5;
+  uint64 uint64 = 6;
+  //  sint32 sint32 = 7;
+  //  sint64 sint64 = 8;
+  //  fixed32 fixed32 = 9;
+  //  fixed64 fixed64 = 10;
+  //  sfixed32 sfixed32 = 11;
+  //  sfixed64 sfixed64 = 12;
+  bool bool = 13;
+  string string = 14;
+  repeated string repeat_string = 15;
+  bytes bytes = 16;       // 不能和repeated一起用
+  oneof test {// 类似union，不能和repeated一起用
+    string field17 = 17;
+    int64 field18 = 18;
+  }
+  map<string, int64> field19 = 19;    // 不能和repeated一起使用
+  google.protobuf.Timestamp timestamp = 20;
+  google.protobuf.Duration duration = 21;
+  google.protobuf.Struct struct = 22;
+}
+
+// 枚举类型
+enum Loglevel {
+  UNKNOWM = 0;
+  DEBUG = 1;
+  INFO = 2;
+  WARN = 3;
+  ERROR = 4;
+}
+
+// 嵌套示例
+message SearchRequest {
+  string id = 1;
+  Loglevel log_level = 2;
+}
+
+// 嵌套示例
+message SearchResponse {
+  message Result {
+    string url = 1;
+    string title = 2;
+    string snippets = 3;
+  }
+  repeated Result results = 1;
+}
+
+// 服务类型
+service SearchService {
+  rpc PostSingleSearch(SearchRequest) returns (SearchResponse) {
+    option (google.api.http) = {
+      post: "/v1/single_search/{id}"
+      body: "*"
+    };
+  }
+
+  rpc PutSingleSearch(SearchRequest) returns (SearchResponse) {
+    option (google.api.http) = {
+      put: "/v1/single_search/{id}"
+      body: "*"
+    };
+  }
+
+  rpc GetSingleSearch(SearchRequest) returns (SearchResponse) {
+    option (google.api.http) = {
+      get: "/v1/single_search/{id}"
+    };
+  }
+
+  rpc DeleteSingleSearch(SearchRequest) returns (SearchResponse) {
+    option (google.api.http) = {
+      delete: "/v1/single_search/{id}"
+    };
+  }
+}
+
+service StreamSearchService {
+  rpc FrontStreamSearch(stream SearchRequest) returns (SearchResponse);
+  rpc BackStreamSearch(SearchRequest) returns (stream SearchResponse);
+  rpc BatchStreamSearch(stream SearchRequest) returns (stream SearchResponse);
+}
