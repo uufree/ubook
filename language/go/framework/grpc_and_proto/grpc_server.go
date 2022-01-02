@@ -22,7 +22,9 @@ func (ss *BusSearchServiceServer) PutSingleSearch(ctx context.Context, req *api.
 	return nil, status.Errorf(codes.OK, "success")
 }
 func (ss *BusSearchServiceServer) GetSingleSearch(ctx context.Context, req *api.SearchRequest) (*api.SearchResponse, error) {
-	return nil, status.Errorf(codes.OK, "success")
+	return &api.SearchResponse{
+		Results: []*api.SearchResponse_Result{},
+	}, nil
 }
 func (ss *BusSearchServiceServer) DeleteSingleSearch(ctx context.Context, req *api.SearchRequest) (*api.SearchResponse, error) {
 	return nil, status.Errorf(codes.OK, "success")
@@ -41,7 +43,7 @@ func (ss *BusSearchServiceServer) BatchStreamSearch(bss api.StreamSearchService_
 }
 
 func main() {
-	lis, err := net.Listen("tcp", "localhost:9998")
+	lis, err := net.Listen("tcp", "0.0.0.0:50051")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
@@ -52,11 +54,11 @@ func main() {
 	// 2. 消息大小限制
 	// 3. 连接时长限制
 	serverOpts := make([]grpc.ServerOption, 0)
-	dialOpts := make([]grpc.DialOption, 0)
-	log.Println(len(serverOpts), len(dialOpts))
+	grpcServer := grpc.NewServer(serverOpts...)
+	log.Println("options len: ", len(serverOpts))
 
 	bs := BusSearchServiceServer{}
-	grpcServer := grpc.NewServer(serverOpts...)
 	api.RegisterSearchServiceServer(grpcServer, &bs)
+
 	grpcServer.Serve(lis)
 }

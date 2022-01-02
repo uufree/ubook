@@ -7,7 +7,7 @@
                       --cpp_out=./gen \
                       --grpc_out=./gen \
                       --plugin=protoc-gen-grpc="$(command -v grpc_cpp_plugin)" \
-                      pb/proto.proto
+                      pb/hello.proto
 
 
 # gen go
@@ -17,18 +17,18 @@
                       --proto_path=/usr/local/include \
                       --go_out=./gen \
                       --go-grpc_out=./gen \
-                      pb/proto.proto
+                      pb/hello.proto
 
 # gen gateway
 /usr/local/bin/protoc --proto_path=./pb \
                       --proto_path=./3rd_party \
                       --proto_path=/usr/local/include \
                       --grpc-gateway_out=logtostderr=true:./gen \
-                      pb/proto.proto
+                      pb/hello.proto
 
 # gen swagger
 /usr/local/bin/protoc --proto_path=./pb \
                       --proto_path=./3rd_party \
                       --proto_path=/usr/local/include \
                       --swagger_out=logtostderr=true:./doc \
-                      pb/proto.proto
+                      pb/hello.proto
