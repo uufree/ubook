@@ -4,7 +4,17 @@
 
 ## 部署
 
+### Single
+
+详见deploy文件夹
+
+### Replica
+
+参考：https://www.cnblogs.com/haima/p/14341903.html
+
 ## 配置
+
+TODO...
 
 ## 工具链
 
@@ -40,3 +50,4 @@
 
 ## 监控
 
+TODO...

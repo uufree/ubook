@@ -1,0 +1,28 @@
+version: '3'
+services:
+    mysql-master:
+        image: mysql:5.7 
+        restart: always
+        environment:
+            MYSQL_ROOT_PASSWORD: sensetime
+            MYSQL_DATABASE: industry
+            TZ: Asia/Shanghai
+        volumes:
+            - ./master/data:/var/lib/mysql
+            - ./master/conf/my.cnf:/etc/my.cnf
+            - ./master/init:/docker-entrypoint-initdb.d/
+        ports:
+            - 33306:3306
+
+    mysql-slave:
+        image: mysql:5.7 
+        restart: always
+        environment:
+            MYSQL_ROOT_PASSWORD: sensetime
+            MYSQL_DATABASE: industry
+            TZ: Asia/Shanghai
+        volumes:
+            - ./slave/data:/var/lib/mysql
+            - ./slave/conf/my.cnf:/etc/my.cnf
+        ports:
+            - 33307:3306
