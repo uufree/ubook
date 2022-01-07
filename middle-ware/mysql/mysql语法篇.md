@@ -17,7 +17,45 @@ SHOW COLLATION;
 
 ## 用户及权限
 
+![Screen Shot 2022-01-07 at 7.42.47 PM](assets/Screen Shot 2022-01-07 at 7.42.47 PM.png)
 
+![Screen Shot 2022-01-07 at 7.43.21 PM](assets/Screen Shot 2022-01-07 at 7.43.21 PM.png)
+
+```mysql
+# 列出当前mysql的用户
+USE mysql;
+SELECT user FROM user;
+
+# 创建用户
+CREATE USER uuchen IDENTIFIED BY "uuchen";
+
+# 删除用户
+DROP USER uuchen;
+
+# 修改用户名称
+RENAME USER uuchen TO uuchen1;
+
+# 修改用户密码
+SET PASSWORD FOR uuchen1 = Password('uuchen1');
+
+# 展示用户权限
+# 以下输出表示用户没有任何权限
+mysql> SHOW GRANTS FOR uuchen1;
++-------------------------------------+
+| Grants for uuchen1@%                |
++-------------------------------------+
+| GRANT USAGE ON *.* TO 'uuchen1'@'%' |
++-------------------------------------+
+
+# 注：权限变更后，需要重新登陆才可生效
+# 增加用户权限
+# 为uuchen1在test db中所有表添加INSERT权限
+GRANT INSERT ON test.* TO uuchen1;
+
+# 降低用户权限
+# 把uuchen1在test db中所有表上的INSERT权限撤销
+REVOKE INSERT ON test.* TO uuchen1;
+```
 
 ## 数据类型
 
