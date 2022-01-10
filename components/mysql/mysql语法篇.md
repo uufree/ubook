@@ -289,6 +289,9 @@ SELECT * FROM labels WHERE name LIKE 'pp_';
   - 将串转换为小写：**Lower(str)**
   - 将串转换为大写：**Upper(str)**
   - 返回子串的字符：**SubString(str, pos)**
+  - 字符串拼接：**Concat(str1, str2...)**
+  - 替换字符：**Replace(str, oldCh, newCh)**
+  
 - **日期、时间处理函数**
   - 增加日期：**AddDate()**
   - 增加时间：**AddTime()**
@@ -305,6 +308,7 @@ SELECT * FROM labels WHERE name LIKE 'pp_';
   - 返回一个时间的分钟部分：**Minute()**
   - 返回一个时间的秒部分：**Second()**
   - 返回天数对应的星期几：**DayOfWeek()**
+  
 - **数值处理函数**
   - 返回一个数字的绝对值：**Abs()**
   - 返回一个角度的余弦：**Cos()**
@@ -314,7 +318,10 @@ SELECT * FROM labels WHERE name LIKE 'pp_';
   - 返回除操作的余数：**Mod()**
   - 返回圆周率：**Pi()**
   - 返回一个随机数：**Random()**
-  - 返回数字的平方根：**Sqrt()**
+  - 返回数字的平方根：**Sqrt()**  
+  - 返回浮点数的小数点后n位：**Round(float, n)**
+  
+
 
 ```mysql
 ### 文本
@@ -583,6 +590,48 @@ DELETE FROM labels WHERE id=101;
 COMMIT;
 ```
 
+## 窗口函数
+
+### 排序
+
+- **RANK**
+
+  ```mysql
+  # 出现并列之后，下一位空出占用的位置。例如：1,2,2,4
+  # trank是名称，可自定义
+  # PARTITION BY是分组，ORDER BY是排序。
+  RANK() OVER(PARTITION BY subject_column ORDER BY score_column [ASC|DESC]) trank;
+  
+  # demo
+  SELECT name, subject, score, RANK() OVER(PARTITION BY subject ORDER BY score) trank
+  FROM students;
+  ```
+
+  ![](assets/aHR0cHM6Ly9pbWcyMDE4LmNuYmxvZ3MuY29tL2ktYmV0YS8xNTE1NjUxLzIwMTkxMi8xNTE1NjUxLTIwMTkxMjI2MTYyMDQ3MzgxLTEyNDAzODc3MDAucG5n.png)
+
+- **DENSE_RANK**
+
+  ```mysql
+  # 出现并列之后，下一位不空出占用的位置。例如：1,2,2,3
+  # trank是名称，可自定义
+  DENSE_RANK() OVER(PARTITION BY subject_column ORDER BY score_column [ASC|DESC]) trank;
+  ```
+
+  ![](assets/aHR0cHM6Ly9pbWcyMDE4LmNuYmxvZ3MuY29tL2ktYmV0YS8xNTE1NjUxLzIwMTkxMi8xNTE1NjUxLTIwMTkxMjI2MTYyMTU0MjIzLTEwMzIxNzQ2NDkucG5n.png)
+
+- **RAW_NUMBER**
+
+  ```mysql
+  # 不需要考虑是否并列，相同的数值也会进行连续排名
+  RAW_NUMBER() OVER(PARTITION BY subject_column ORDER BY score_column [ASC|DESC]) trank;
+  ```
+
+  ![](assets/aHR0cHM6Ly9pbWcyMDE4LmNuYmxvZ3MuY29tL2ktYmV0YS8xNTE1NjUxLzIwMTkxMi8xNTE1NjUxLTIwMTkxMjI2MTYyMjI1ODI0LTMzOTg2MDY4NC5wbmc.png)
+
+### 聚合
+
+![](assets/20181017104103275-1641784432558.jpg)
+
 ## 视图
 
 **数据库视图是虚拟表**。预先在一张或多张物理表上定义了一组复杂的查询，视图就是这个复杂查询的结果集。在视图上进行查询，即意味着在复杂查询的结果集上再次进行查询。例如：
@@ -617,4 +666,10 @@ Cursor，分批返回结果
 ## 触发器
 
 执行INSERT、SELECT、UPDATE、DELETE操作时，会触发提前注册的CALLBACK
+
+
+
+
+
+
 
