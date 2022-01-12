@@ -673,3 +673,8 @@ Cursor，分批返回结果
 
 
 
+
+
+
+
+Allocate failed due to rpc error: code = Unknown desc = Nvidia node mismatch for pod engine-static-feature-db-worker-0-5587ccb478-m9gm8(engine-static-feature-db-worker-0), pick up:/dev/nvidia4  predicate: /dev/nvidia0, which is unexpected
