@@ -666,10 +666,3 @@ Cursor，分批返回结果
 ## 触发器
 
 执行INSERT、SELECT、UPDATE、DELETE操作时，会触发提前注册的CALLBACK
-
-
-
-
-
-
-

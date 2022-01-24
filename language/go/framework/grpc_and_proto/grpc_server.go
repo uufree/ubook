@@ -8,9 +8,10 @@ import (
 	"grpc_and_proto/gen/test/api"
 	"log"
 	"net"
+	"time"
 )
 
-type BusSearchServiceServer struct{
+type BusSearchServiceServer struct {
 	*api.UnimplementedSearchServiceServer
 	*api.UnimplementedStreamSearchServiceServer
 }
@@ -60,5 +61,11 @@ func main() {
 	bs := BusSearchServiceServer{}
 	api.RegisterSearchServiceServer(grpcServer, &bs)
 
-	grpcServer.Serve(lis)
+	go func() {
+		time.Sleep(5 * time.Second)
+		grpcServer.Stop()
+	}()
+
+	err = grpcServer.Serve(lis)
+	log.Printf("err: %+v", err)
 }

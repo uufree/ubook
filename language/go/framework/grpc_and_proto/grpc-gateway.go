@@ -8,6 +8,7 @@ import (
 	"grpc_and_proto/gen/test/api"
 	"log"
 	"net/http"
+	"time"
 )
 
 type BBusSearchServiceServer struct {
@@ -37,5 +38,21 @@ func main() {
 		log.Fatalln("registry failed")
 	}
 
-	http.ListenAndServe("localhost:9997", mux)
+	httpServer := &http.Server{
+		Addr:    "localhost:9997",
+		Handler: mux,
+	}
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		httpServer.Shutdown(context.Background())
+	}()
+
+	err := httpServer.ListenAndServe()
+	if err == http.ErrServerClosed {
+		log.Printf("err: %+v", err)
+	}
+	if err != nil {
+		log.Printf("err: %+v", err)
+	}
 }
