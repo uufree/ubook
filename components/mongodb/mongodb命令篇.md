@@ -258,8 +258,13 @@ mongodb://[username:password@]host1[:port1][,host2[:port2],...[,hostN[:portN]]][
 
   - 对返回结果限制条件：
     - 限制返回文档数量：`db.test.find({}).limit(1)`
+    
+      > 如果limit设置为0的话，等于没有设置limit
+    
     - 跳过指定数量的文档：`db.test.find({}).skip(1)`
+    
     - 对返回结果进行升序排序：`db.test.find({}).sort({age: 1})`
+    
     - 对返回结果进行降序排序：`db.test.find({}).sort({age: -1})`
     
   - 查询条件

@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS `foreign_test` (
 
 # 删除表
 DROP TABLE IF EXISTS labels;
-
+mysql -h0.0.0.0 -P3306 -usensetime -psensetime
 # 展示表的字段类型
 DESC labels;
 
