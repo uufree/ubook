@@ -15,6 +15,65 @@ SHOW CHARACTER SET;
 SHOW COLLATION;
 ```
 
+## 综合类命令
+
+- 索引
+
+  ```mysql
+  # 展示搜索过程使用了那个索引
+  EXPLAIN SELECT * FROM test WHERE id between 1000 and 2000;
+  
+  # 强制使用某个索引
+  EXPLAIN SELECT * FROM t FORCE INDEX(b) WHERE a=10;
+  
+  # 重新统计索引
+  ANALYZE TABLE t;
+  ```
+
+- 环境变量
+
+  ```mysql
+  # 展示全部的环境变量
+  SHOW VARIABLES;
+  
+  # 展示Change Buffer的相关的配置
+  SHOW VARIABLES LIKE '%change_buffer%';
+  
+  # 展示慢查询相关的配置
+  # 可以从这个查询中获取慢查询日志文件的存储位置，进而做进一步的排查
+  SHOW VARIABLES LIKE '%query%';
+  
+  # 修改change buffer大小
+  SET GLOBAL innodb_change_buffer_max_size=50;
+  
+  # 查询io capacity能力。这行语句可以查出：
+  # innodb_io_capacity_max: 建议将这个值设置为磁盘最大的随机IO读写能力（通过fio进行测试）
+  # innodb_io_capacity: 根据系统中其他服务时候有写磁盘的需求，将这个值设置为max 50%～75%
+  SHOW VARIABLES LIKE '%innodb_io_capacity%';
+  
+  # 查询最大脏页比例
+  SHOW VARIABLES LIKE '%innodb_max_dirty_pages_pct%';
+  
+  # 是否在刷新脏页时，将脏页相邻的数据页（脏）一起刷回磁盘
+  SHOW VARIABLES LIKE '%innodb_flush_neighbors%';
+  
+  # 查询排序缓存大小
+  SHOW VARIABLES LIKE '%sort_buffer_size%';
+  ```
+
+- 其他
+
+  ```mysql
+  # 重建表。可以有效缩减数据库文件的大小
+  ALTER TABLE t ENGINE=InnoDB;
+  
+  # 展示当前的工作列表
+  # 常用于排查问题
+  SHOW PROCESSLIST;
+  ```
+
+  
+
 ## 用户及权限
 
 ![Screen Shot 2022-01-07 at 7.42.47 PM](assets/Screen Shot 2022-01-07 at 7.42.47 PM.png)
@@ -666,3 +725,4 @@ Cursor，分批返回结果
 ## 触发器
 
 执行INSERT、SELECT、UPDATE、DELETE操作时，会触发提前注册的CALLBACK
+
