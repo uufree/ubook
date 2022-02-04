@@ -3,7 +3,6 @@
 [TOC]
 
 - BinLog的格式类型
-- 脏读、幻读问题详解
 
 ## 架构设计
 
@@ -323,6 +322,51 @@ InnoDB引擎使用了B+树索引模型，所有的数据都是存储在B+树中�
 
 我们需要尽量避免长事务，因为长事务可能会用到非常老的Read-View，在事务提交之前，它可能用到的Read-View都必须保留，这就回导致大量占用存储空间。
 
+### 事务并发问题
+
+#### 不可重复读
+
+一个事务只能读到另一个已经提交的事务修改过的数据，并且其他事务每对该数据进行一次修改并提交后，该事务都能查询得到最新值。例如下图：
+
+<img src="assets/截屏2022-02-04 下午2.56.35.png" alt="截屏2022-02-04 下午2.56.35"  />
+
+#### 脏读
+
+一个事务读到另外一个未提交事务的修改。例如下图：
+
+![截屏2022-02-04 下午2.55.27](assets/截屏2022-02-04 下午2.55.27.png)
+
+#### 幻读
+
+一个事务在前后两次查询同一个范围的时候，后一次查询看到了前一次查询没有看到的行。需要注意的是：
+
+- **幻读仅出现在当前读（LOCK IN SHARE MODE、FOR UPDATE）**，一致性读无法出现幻读。
+- **幻读仅指新插入的行**
+
+例如下图：
+
+![截屏2022-02-04 下午2.58.44](assets/截屏2022-02-04 下午2.58.44.png)
+
+#### 出现场景
+
+以上3种问题可能出现的场景：
+
+![截屏2022-02-04 下午3.00.35](assets/截屏2022-02-04 下午3.00.35.png)
+
+#### 解决方式
+
+- 读未提交
+
+  因隔离级别特性，允许出现脏读、不可重复读、幻读问题。
+
+- 读已提交
+
+  因隔离级别特性，事务中的每条语句执行前，都会创建一个视图，允许看见已提交的事务。因此，允许出现幻读、可重复读问题。
+
+- 可重复读
+
+  - **幻读**：使用**间隙锁**防止插入。
+
 ### MVCC
 
 多版本并发控制，可以有效提升**数据库的并发访问能力**。
@@ -522,11 +566,145 @@ set value=2,version=version+1
 where id=#{id} and version=#{version};
 ```
 
+#### Q&A
+
+1. **LOCK IN SHARE MODE**和**FOR UPDATE**有什么区别？
+   - LOCK IN SHARE MODE是读锁。在非主键索引上进行查询时，并且使用了**覆盖索引**的特性，那么就仅在非主键索引的相关行上加锁，不会在主键索引的相关行上加锁。
+   - FOR UPDATE是写锁。在非主键索引上进行查询时，一定会在主键索引目标行和非主键索引目标行上加锁。
+
+### 间隙锁、Next-Key Lock
+
+#### 间隙锁
+
+产生幻读的原因是：**行锁仅能管理行，无法管理行之间的间隙。**因此，为了解决幻读问题，InnoDB引入**间隙锁（Gap-Lock）**，用来管理行间隙。需要注意：**间隙锁仅作用于可重复读隔离级别。**顾名思义，间隙锁如下图所示：
+
+<img src="assets/e7f7ca0d3dab2f48c588d714ee3ac861.png" alt="e7f7ca0d3dab2f48c588d714ee3ac861" style="zoom:50%;" />
+
+行锁的冲突如下图所示：
+
+![c435c765556c0f3735a6eda0779ff151](assets/c435c765556c0f3735a6eda0779ff151.png)
+
+如上所示：**与行锁冲突的是另外一把行锁**。但是对于间隙锁来说，唯一产生的冲突的方式时：**往间隙中插入一个记录**。间隙锁A与间隙锁B之间不论加锁的间隙是否重叠，不存在任何冲突关系。
+
+但是间隙锁的引入，**导致同样的语句锁住了更大的范围，对系统的并发度造成影响**。例如：
+
+<img src="assets/df37bf0bb9f85ea59f0540e24eb6bcbe.png" alt="df37bf0bb9f85ea59f0540e24eb6bcbe" style="zoom:67%;" />
+
+> 系统仅有id=0，id=5，id=10，id=15这4条数据，id=9不存在。
+
+1. Session A持有间隙锁(5, 10)；Session B持有间隙锁(5, 10)
+2. Session B尝试插入数据，但是被Session A的间隙锁挡住
+3. Session A尝试插入数据，但是被Session B的间隙锁挡住
+4. 两个Session互相等待，形成死锁
+
+#### Next-Key Lock
+
+**间隙锁和行锁统合称Next-Key Lock，每个Next-Key Lock都是前开后闭区间。**类似这样：(-∞,0]、(0,5]、(5,10]、(10,15]、(15,20]、(20, 25]、(25, +supremum]。
+
+#### 加锁规则
+
+两个原则、两个优化、一个bug：
+
+- 原则1：加锁的基本的单位是Next-Key Lock，左开右闭。
+
+- 原则2：查找过程中，访问到的对象才会加锁
+
+- 优化1：索引上的等值查询，给唯一索引加锁的时候，Next-Key Lock退化为行锁
+
+- 优化2：索引上的等值查询，向右遍历时且最后一个值不满足等值条件的时候，Next-Key Lock退化为间隙锁
+
+- BUG：唯一索引上的范围查询会访问到不满足条件的第一个值为止
+- 补充：非索引查询时，Next-Key Lock会锁住全表的数据。
+
+详见以下示例：
+
+```mysql
+# Base
+CREATE TABLE `t` ( 
+  `id` int(11) NOT NULL, 
+  `c` int(11) DEFAULT NULL, 
+  `d` int(11) DEFAULT NULL, 
+  PRIMARY KEY (`id`), 
+  KEY `c` (`c`)) ENGINE=InnoDB;
+  
+INSERT INTO t VALUES(0,0,0),(5,5,5),(10,10,10),(15,15,15),(20,20,20),(25,25,25);
+
+# Case 1
+# 原则1: (5, 10]
+# 优化2: (5, 10)
+BEGIN;
+UPDATE t SET d=d+1 WHERE id=7;
+COMMIT;
+
+# Case 2
+# 原则1: (0, 5], (5, 10]
+# 原则2: 仅在索引c上加读锁，不在id=5的主键索引上加锁
+# 优化2: (0, 5], (5, 10)
+BEGIN;
+SELECT id FROM t WHERE c=5 LOCK IN SHARE MODE;
+COMMIT;
+
+# Case 3
+# 原则1: (5, 10]
+# 优化1: 行锁10
+# 优化2: 行锁10, (10, 15]
+BEGIN;
+SELECT * FROM t WHERE id>=10 AND id<11 FOR UPDATE;
+COMMIT;
+
+# Case 4
+# 原则1: (5, 10]
+# 优化1: (5, 10]
+# 优化2: (5, 10], (10, 15]
+BEGIN;
+SELECT * FROM t WHERE c>=10 AND c<11 FOR UPDATE;
+COMMIT;
+
+# Case 5
+# (10, 15], (15, 20]
+BEGIN;
+SELECT * FROM t WHERE id>10 AND id<=15 FOR UPDATE;
+COMMIT;
+```
+
 ## Bin Log
 
 BinLog是Mysql Server层日志，主要用于**插入、更新、删除语句归档**。BinLog采用追加写的方式，记录所有的逻辑操作，**常用于数据库备份**。
 
+### 分类
+
+TODO...
+
+### 写入机制
+
+**事务执行过程中，先把日志写到binlog cache，事务提交的时候，再把binlog cache写到binlog文件中**。一个事务的binlog是不能被拆开的，因此不论这个事务多大，也要确保一次性写入。
+
+每个线程一个binlog cache，**参数binlog_cache_size用于控制单个线程内 binlog cache 所占内存的大小**。如果超过了这个参数规定的大小，就要暂存到磁盘。事务提交的时候，执行器把 binlog cache 里的完整事务写入到 binlog 中，并清空 binlog cache。如下图所示：
+
+<img src="assets/9ed86644d5f39efb0efec595abb92e3e.png" alt="9ed86644d5f39efb0efec595abb92e3e" style="zoom:67%;" />
+
+上图中，写入分成两个步骤：
+
+- **write**：将数据写入文件系统的page cache，速度较快
+- **fsync**：将数据持久化至磁盘，占用IOPS
+
+write和fsync的时机由参数**sync_binlog**控制，可选：
+
+1. **sync_binlog=0**：每次提交事务时，只write，不fsync
+2. **sync_binlog=1**：每次提交事务时，都要执行fsync
+3. **sync_binlog=N**：每次提交事务时，都执行write，但实行N个事务后，才会执行fsync
+
+可以根据业务需求，选择合适的数值。除此之外，BinLog还有几个重要的参数：
+
+- **binlog_group_commit_sync_delay**：表示延迟多少微妙之后，才调用fsync
+
+- **binlog_group_commit_sync_no_delay_count**：表示累计多少次之后，才调用fsync
+
+  > 以上两个条件是或关系。满足任一就可调用fsync
+
 ## Redo Log
+
+### 基本概念
 
 **Redo Log是InnoDB特有的日志，大小固定，支持循环写入。**主要负责以下两件事：
 
@@ -543,6 +721,28 @@ BinLog是Mysql Server层日志，主要用于**插入、更新、删除语句归
 Redo Log循环写入示例：
 
 <img src="assets/16a7950217b3f0f4ed02db5db59562a7.png" style="zoom:67%;" />
+
+### Redo Log Buffer
+
+一个事务中可能发生多次写操作，但是只有在事务提交时，才会用两阶段提交的方式将更改提交到Redo Log中。因此，**Redo Log Buffer用来缓存事务未提交前的所有更改操作**。
+
+以下几种情况会将Redo Log Buffer主动刷新至Redo Log中：
+
+1. 事务Commit
+2. 后台线程定期刷新
+3. Redo Log Buffer占用的空间达到**innodb_log_buffer_size**（16MB）一半的时候，后台线程会主动刷新。但仅写入FS Page Cache，不会调用Fsync。
+
+同binlog cache一样，Redo Log在写入过程中，也会分为以下几个状态：
+
+<img src="assets/9d057f61d3962407f413deebc80526d4.png" alt="9d057f61d3962407f413deebc80526d4" style="zoom:67%;" />
+
+为了控制Redo Log的写入策略，InnoDB提供了**innodb_flush_log_at_trx_commit**参数，它有以下几种可能的取值：
+
+- 0：每次提交事务时，仅写入Redo Log Buffer
+- 1：每次提交事务时，都要fsync至磁盘。占用IOPS
+- 2：每次提交事务时，仅用write写入FS page cache
+
+后台线程会定时执行Write + Fsync操作，将Redo Log Buffer中的数据持久化至磁盘
 
 ## Undo Log
 
@@ -599,15 +799,6 @@ Undo Log用于记录数据的逻辑变化，主要以下场景：
 5. **可以只使用Redo Log吗？**
 
    理论上来讲是可以的。但是在主从副本下，需要依赖BinLog进行数据复制。
-
-## Redo Log Buffer
-
-一个事务中可能发生多次写操作，但是只有在事务提交时，才会用两阶段提交的方式将更改提交到Redo Log中。因此，**Redo Log Buffer用来缓存事务未提交前的所有更改操作**。
-
-以下几种情况会将Redo Log Buffer主动刷新至Redo Log中：
-
-1. 事务Commit
-2. 后台线程定期刷新
 
 ## Change Buffer
 

@@ -78,20 +78,55 @@
 
 10. **慢查询问题**的排查思路
 
+    > 建议合理设置long_query_time，从而尽早暴露慢查询问题
+
     - 通过`EXPLAIN`判断查询语句**是否走了正确的索引**
 
     - 在查询语句后加`lock in share mode`。对比两条语句的执行速度。如果加上`LOCK...`的语句执行的更快的话，意味着有另外一个事务在目标行上进行了多次更新，造成Undo Log过大，回滚变慢。图解如下：
 
       <img src="assets/46bb9f5e27854678bfcaeaf0c3b8a98c.png" alt="46bb9f5e27854678bfcaeaf0c3b8a98c" style="zoom:50%;" />
 
-11. 验证单条SELECT语句是否启用了事务
+11. **慢查询问题**的处理思路
+
+    - **索引设计问题**。因为Mysql支持Online DDL操作，可以在线上执行`ALTER TABLE ...`操作
+    - **语句写的不对**。这个在性能测试的阶段就会暴露出来
+    - **Mysql选错索引**。在SQL语句中加`FORCE INDEX`，强制选择某个索引
+
+12. 验证单条SELECT语句是否启用了事务
 
     - step1: `SET autocommit = 0;` — 关闭自动提交；
     - step2: `SELECT * FROM table_name;` — 执行查询语句 ；
     - step3: `SELECT * FROM information_schema.INNODB_TRX;` — 查看正在运行的事务，此时你应该会看到一条记录，这条记录的 `TRX_STARTED` 就是 step2 的执行时间；
     - step4: `COMMIT;` — step3 产生的那条记录消失。
 
-    
+13. 如何处理**短链接风暴**？
 
+    > Mysql Server产生'Too many connections'日志，即意味着出现了链接错误
 
+    - 调高**max_connections**
 
+    - 通过`SHOW PROCESSLIST`命令，主动KILL掉处于**Sleep**状态的连接
+
+      > 这样做比较暴力。时间充足的话，可以优先Kill掉非事务连接
+
+14. 如何处理QPS暴增？
+
+    应用端使用消息中间件进行削峰，防止压力到达数据库层
+
+15. **Mysql出现性能瓶颈，且瓶颈在IO上，可以通过哪些方法来提升性能呢**？
+
+    - 设置binlog_group_commit_sync_delay和binlog_group_commit_sync_no_delay_count参数，减少 binlog 的写盘次数。这个方法是基于“额外的故意等待”来实现的，因此可能会增加语句的响应时间，但没有丢失数据的风险。
+    - 将sync_binlog设置为大于 1 的值（比较常见是 100~1000）。这样做的风险是，主机掉电时会丢 binlog 日志。
+    - 将innodb_flush_log_at_trx_commit设置为 2。这样做的风险是，主机掉电的时候会丢数据。
+
+16. 为什么 binlog cache 是每个线程自己维护的，而 redo log buffer 是全局共用的？
+
+    - binlog是不能“被打断的”。一个事务的binlog必须连续写，因此要整个事务完成后，再一起写到文件里。
+
+    - redo log并没有这个要求，中间有生成的日志可以写到redo log buffer中。redo log buffer中的内容还能“搭便车”，其他事务提交的时候可以被一起写到磁盘中
+
+17. 事务执行期间，还没到提交阶段，如果发生Crash的话，redo log肯定丢了，这会不会导致主备不一致呢？
+
+    不会。因为这时候binlog也还在binlog cache里，没发给备库。crash以后redo log和binlog都没有了，从业务角度看这个事务也没有提交，所以数据是一致的。
+
+18. 
