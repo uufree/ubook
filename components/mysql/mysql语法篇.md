@@ -59,6 +59,10 @@ SHOW COLLATION;
   
   # 查询排序缓存大小
   SHOW VARIABLES LIKE '%sort_buffer_size%';
+  
+  # 展示innodb buffer pool的大小
+  # 建议设置为物理内存60-80%的样子
+  SHOW VARIABLES LIKE 'innodb_buffer_pool_size';
   ```
 
 - 其他
@@ -70,8 +74,18 @@ SHOW COLLATION;
   # 展示当前的工作列表
   # 常用于排查问题
   SHOW PROCESSLIST;
+  
+  # 展示innodb的实时状态
+  SHOW ENGINE INNODB STATUS \G
+  
+  # 复制表结构
+  CREATE TABLE t1 LIKE t;
+  
+  # 在两个表之间拷贝数据
+  # 这个语句将会在t上加Next-Key Lock，防止数据不一致
+  INSERT INTO t1(a, b, c) SELECT a, b, c FROM t;
   ```
-
+  
   
 
 ## 用户及权限

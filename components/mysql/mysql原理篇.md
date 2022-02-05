@@ -76,7 +76,46 @@ mysql> select word from words order by rand() limit 3;
 
 #### 联表
 
-TODO...
+Mysql选择驱动表的方式：
+
+- 使用**LEFT JOIN**时，左表是驱动表，右表是被驱动表
+- 使用**RIGHT JOIN**是，右表是驱动表，左表是被驱动表
+- 使用**INNER JOIN**或者**JOIN**时，先根据WHERE条件过滤数据，过滤完成后，数据量小的表作为驱动表，数据量大的作为被驱动表
+
+根据JOIN条件中的被驱动表字段是否有索引，会采用两种不同的实现方式：
+
+- **Index Nested-Loop Join**：被驱动表上**有索引**
+
+  流程图如下所示：
+
+  <img src="assets/d83ad1cbd6118603be795b26d38f8df6.png" alt="d83ad1cbd6118603be795b26d38f8df6" style="zoom:67%;" />
+
+  在这个流程中，可以分为以下几个步骤：
+
+  1. 在驱动表上根据WHERE条件，选择一组合适的目标行，计为N行
+  2. 对于步骤1中获取的目标行，根据JOIN条件中的字段逐行去被驱动表中查找。此过程走的被驱动表的索引树。共从被驱动表中获取M行结果
+  3. 整个执行流程中，总扫描行数为N+M行
+
+- **Block Nested-Loop Join**：被驱动表上**无索引**
+
+  流程图如下所示：
+
+  <img src="assets/15ae4f17c46bf71e8349a8f2ef70d573.png" alt="15ae4f17c46bf71e8349a8f2ef70d573" style="zoom:67%;" />
+
+  在这个流程中，可以分为以下几个步骤：
+
+  1. 在驱动表上根据WHERE条件，选择一组合适的目标行，计为N行。这N行结果放在一块被称为Join Buffer的内存中。若一块放不下，那么就像图中所示的分块执行一样。
+  2. 扫描被驱动表，将被驱动表中的每一行都取出来，与Join Buffer中的数据做对比，满足JOIN条件的作为结果行返回。被驱动表中共有M行数据。注意：**每块Join Buffer都需要一次被驱动表的全表扫描。**
+  3. 整个流程中，扫描行数一共有N + x * M行。比对计算行数一共有N*M次。x表示加载了几次Join Buffer
+
+针对以上两种不同的实现方式，有以下优化思路：
+
+- **Index Nested-Loop Join**
+  1. 回表时，采用顺序读盘（**Multi-Range Read**）。InnoDB将主键IDs排序后，再去主键索引上读取数据
+  2. 批量比对（**Batched Key Access**）。InnoDB在Join Buffer中存放驱动表上的对比字段，然后在被驱动表的索引树上进行批量比对
+- **Block Nested-Loop Join**
+  1. **在被驱动表的JOIN..ON字段上加索引**
+  2. **调整join_buffer_size的大小，减少被驱动表的全表扫描次数**
 
 #### 排序
 
@@ -210,6 +249,28 @@ ALTER TABLE t ENGINE=InnoDB;
 整个过程是在线的。**ALTER命令在启动时会申请MDL写锁，但是在拷贝数据之前，这个MDL写锁会退化为读锁**。因此，上述整个过程时Online的。
 
 其次，在拷贝的过程中。ALTER会在新的页面预留10%的空间用作后续的更新。因此，如果旧表本身很紧凑，很可能出现在重建之后数据库文件大小反倒增加的现象。
+
+## InnoDB
+
+### 内存管理
+
+InnoDB内存管理用的是最近最少使用(Least Recently Used, **LRU**)算法。算法模型如下图所示：
+
+<img src="assets/e0ac92febac50a5d881f1188ea5bfd65.png" alt="e0ac92febac50a5d881f1188ea5bfd65" style="zoom:67%;" />
+
+考虑到全表扫描这样的操作可能导致大量链表头部的热点页被淘汰，InnoDB对LRU做了一些改动。如下图所示：
+
+<img src="assets/21f64a6799645b1410ed40d016139828.png" alt="21f64a6799645b1410ed40d016139828" style="zoom:67%;" />
+
+**在InnoDB实现上，按照5:3的比例把LRU链表分成了young区域和old区域。**处于old区域的数据页，在每次被访问时，都需要执行以下判断：
+
+- 若这个数据页在LRU链表中存在的时间超过了1000ms，就把它移动到链表头部
+
+- 如果这个数据页在LRU链表中存在的时间短于1000ms，位置保持不变
+
+  > 停留阈值由innodb_old_blocks_time控制，默认1000ms
+
+使用这样的策略，确保了在全表扫描的过程中，处于young区域的热点数据不受影响。
 
 ## 索引
 
@@ -673,7 +734,15 @@ BinLog是Mysql Server层日志，主要用于**插入、更新、删除语句归
 
 ### 分类
 
-TODO...
+- **Statement**：记录的是SQL原文。可能出现这样一种情况：在主库执行这条SQL语句的时候，用的是索引A；而在备库执行这条 SQL语句的时候，却使用了索引B，导致主从不一致。
+- **Row**：记录针对主键ID的CRUD操作，不会产生主从不一致。Row模式比较占用空间，比如说删除100行这样的操作，它会完整的记录100次操作。
+- **Mixed**：Mysql自行判断SQL语句是否可能引起主从不一致。如果可能，采用Row模式；如果不可能，采用Statement模式。
+
+根据业界经验，**建议将BinLog设置为Row模式**：
+
+- 误删除：Row模式会先保存完整的信息，然后再执行删除操作
+- 误插入：Row模式会记录完整的插入信息
+- 误修改：Row模式会记录修改前的整行信息
 
 ### 写入机制
 
@@ -885,4 +954,28 @@ Merge执行流程是这样的：
    因为通过LRU淘汰的脏页对应的Redo Log中的内容是随机的。如果修改Redo Log，就意味着会在Redo Log中产生随机读写，违背了Redo Log设计的初衷：将随机写转化为顺序写。基于以上思考：**在刷新脏页时，是不用动Redo Log文件的**。InnoDB有额外的保证：**在重放Redo Log时，如果一个数据页已经刷回磁盘，那么他会被自动识别到，并跳过**。
 
    > 这块需要思考下实现的原理！！！
+
+## 分区分表
+
+Mysql支持分区。即逻辑层一张表，对应存储引擎N张表。
+
+Mysql不支持分表。需要在业务层自行实现逻辑分表。
+
+## 主从模式
+
+TODO...
+
+**这部分知识在使用时补充，对应章节：24～29**
+
+主从切换原理：
+
+<img src="assets/fd75a2b37ae6ca709b7f16fe060c2c10.png" alt="fd75a2b37ae6ca709b7f16fe060c2c10" style="zoom:67%;" />
+
+> Readonly对root用户无效。而用户同步的线程就具有root权限
+
+数据同步流程图：
+
+<img src="assets/a66c154c1bc51e071dd2cc8c1d6ca6a3.png" alt="a66c154c1bc51e071dd2cc8c1d6ca6a3" style="zoom: 67%;" />
+
+> 根据数据同步流程图，可得知一致性为：**最终一致性**
 
