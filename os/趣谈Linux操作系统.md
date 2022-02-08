@@ -525,15 +525,609 @@ VFS主要是为了适配各种不同的硬盘文件系统，为OS层提供统一
 
 ## 输入输出系统
 
+### 概述
+
 CPU 并不直接和设备打交道，它们中间有一个叫作**设备控制器**（Device Control Unit）的组件，例如硬盘有磁盘控制器、USB 有 USB 控制器、显示器有视频控制器等。这些控制器就像代理商一样，它们知道如何应对硬盘、鼠标、键盘、显示器的行为。输入输出设备我们大致可以分为两类：
 
-- 块设备：
-- 字符设备：
+- **块设备**：将信息存储在固定大小的块中，每个块都有自己的地址。硬盘就是常见的块设备。
+- **字符设备**：发送或接受的是字节流。而不用考虑任何块结构，没有办法寻址。鼠标就是常见的字符设备。
+
+由于块设备传输的数据量比较大，控制器里往往会有缓冲区。CPU 写入缓冲区的数据攒够一部分，才会发给设备。CPU 读取的数据，也需要在缓冲区攒够一部分，才拷贝到内存。
+
+当CPU给设备发了一个指令，让它读取一些数据，它读完的时候，怎么通知你呢？一般是通过**硬件中断**的方式，通知操作系统输入输出操作已经完成。
+
+![下载 (38)](assets/下载 (38).jpeg)
+
+完整的处理流程如下所示：
+
+![下载 (39)](assets/下载 (39).jpeg)
+
+### 块设备
+
+TODO...
+
+### 字符设备
+
+TODO...
 
 ## 进程通信
 
+### 概述
+
+Linux提供了一组工具用于管理IPC对象：
+
+- ipcmk
+- ipcs
+- ipcrm
+
+### 管道
+
+管道模型常用于命令行工具，例如：
+
+```bash
+ps -ef | grep 关键字 | awk '{print $2}' | xargs kill -9
+```
+
+管道分为两种类型：
+
+- **匿名管道**："|"在命令行中表示匿名管道
+
+- **命名管道**：需要手动创建
+
+  ```bash
+  mkfifo hello
+  
+  # client 1
+  echo "hello world" > hello
+  
+  # client 2
+  cat < hello
+  ```
+
+实现原理：
+
+![下载 (2)](assets/下载 (2)-4303245.png)
+
+### 消息队列
+
+管道是没有Buffer的Channel；消息队列是有Buffer的Channel。具体的使用方式如下所示：
+
+- **创建消息队列**
+
+  ```c
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <sys/msg.h>
+   
+   
+  int main() {
+    int messagequeueid;
+    key_t key;
+   
+   
+    if((key = ftok("/root/messagequeue/messagequeuekey", 1024)) < 0)
+    {
+        perror("ftok error");
+        exit(1);
+    }
+   
+   
+    printf("Message Queue key: %d.\n", key);
+   
+   
+    if ((messagequeueid = msgget(key, IPC_CREAT|0777)) == -1)
+    {
+        perror("msgget error");
+        exit(1);
+    }
+   
+   
+    printf("Message queue id: %d.\n", messagequeueid);
+  }
+  ```
+
+- **查询消息队列**
+
+  ```bash
+  > ipcs -q
+   
+   
+  ------ Message Queues --------
+  key        msqid      owner      perms      used-bytes   messages    
+  0x00016978 32768      root       777        0            0
+  ```
+
+- **发送消息**
+
+  ```c
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <sys/msg.h>
+  #include <getopt.h>
+  #include <string.h>
+   
+   
+  struct msg_buffer {
+      long mtype;
+      char mtext[1024];
+  };
+   
+   
+  int main(int argc, char *argv[]) {
+    int next_option;
+    const char* const short_options = "i:t:m:";
+    const struct option long_options[] = {
+      { "id", 1, NULL, 'i'},
+      { "type", 1, NULL, 't'},
+      { "message", 1, NULL, 'm'},
+      { NULL, 0, NULL, 0 }
+    };
+    
+    int messagequeueid = -1;
+    struct msg_buffer buffer;
+    buffer.mtype = -1;
+    int len = -1;
+    char * message = NULL;
+    do {
+      next_option = getopt_long (argc, argv, short_options, long_options, NULL);
+      switch (next_option)
+      {
+        case 'i':
+          messagequeueid = atoi(optarg);
+          break;
+        case 't':
+          buffer.mtype = atol(optarg);
+          break;
+        case 'm':
+          message = optarg;
+          len = strlen(message) + 1;
+          if (len > 1024) {
+            perror("message too long.");
+            exit(1);
+          }
+          memcpy(buffer.mtext, message, len);
+          break;
+        default:
+          break;
+      }
+    }while(next_option != -1);
+   
+   
+    if(messagequeueid != -1 && buffer.mtype != -1 && len != -1 && message != NULL){
+      if(msgsnd(messagequeueid, &buffer, len, IPC_NOWAIT) == -1){
+        perror("fail to send message.");
+        exit(1);
+      }
+    } else {
+      perror("arguments error");
+    }
+    
+    return 0;
+  }
+  ```
+
+- **读取消息**
+
+  ```c
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <sys/msg.h>
+  #include <getopt.h>
+  #include <string.h>
+   
+   
+  struct msg_buffer {
+      long mtype;
+      char mtext[1024];
+  };
+   
+   
+  int main(int argc, char *argv[]) {
+    int next_option;
+    const char* const short_options = "i:t:";
+    const struct option long_options[] = {
+      { "id", 1, NULL, 'i'},
+      { "type", 1, NULL, 't'},
+      { NULL, 0, NULL, 0 }
+    };
+    
+    int messagequeueid = -1;
+    struct msg_buffer buffer;
+    long type = -1;
+    do {
+      next_option = getopt_long (argc, argv, short_options, long_options, NULL);
+      switch (next_option)
+      {
+        case 'i':
+          messagequeueid = atoi(optarg);
+          break;
+        case 't':
+          type = atol(optarg);
+          break;
+        default:
+          break;
+      }
+    }while(next_option != -1);
+   
+   
+    if(messagequeueid != -1 && type != -1){
+      if(msgrcv(messagequeueid, &buffer, 1024, type, IPC_NOWAIT) == -1){
+        perror("fail to recv message.");
+        exit(1);
+      }
+      printf("received message type : %d, text: %s.", buffer.mtype, buffer.mtext);
+    } else {
+      perror("arguments error");
+    }
+    
+    return 0;
+  }
+  ```
+
+### 共享内存
+
+共享内存是将同一段物理内存内存映射到不同进程的虚拟内存中，从而达到共享的目的。使用方式如下所示：
+
+```
+# 创建共享内存
+int shmget(key_t key, size_t size, int flag);
+
+# 查询共享内存
+bash> ipcs --shmems
+  
+# 挂载共享内存
+void *shmat(int shm_id, const void *addr, int flag);
+
+# 卸载共享内存
+int shmdt(void *addr); 
+
+# 删除共享内存
+int shmctl(int shm_id, int cmd, struct shmid_ds *buf);
+```
+
+### 信号量
+
+信号量类似于Mutex，本质上是一个计数器，用于实现进程间的互斥与同步。使用方式如下：
+
+```
+# 创建信号量
+int semget(key_t key, int num_sems, int sem_flags);
+
+# 初始化信号量
+int semctl(int semid, int semnum, int cmd, union semun args);
+
+# 使用信号量
+int semop(int semid, struct sembuf semoparray[], size_t numops);
+```
+
+### 共享内存+信号量实战
+
+通信原理如下所示：
+
+![下载 (3)](assets/下载 (3).png)
+
+实战代码如下：
+
+公共头文件share.h
+
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <string.h>
+ 
+#define MAX_NUM 128
+ 
+struct shm_data {
+  int data[MAX_NUM];
+  int datalength;
+};
+ 
+union semun {
+  int val; 
+  struct semid_ds *buf; 
+  unsigned short int *array; 
+  struct seminfo *__buf; 
+}; 
+ 
+int get_shmid(){
+  int shmid;
+  key_t key;
+  
+  if((key = ftok("/root/sharememory/sharememorykey", 1024)) < 0){
+      perror("ftok error");
+          return -1;
+  }
+  
+  shmid = shmget(key, sizeof(struct shm_data), IPC_CREAT|0777);
+  return shmid;
+}
+ 
+int get_semaphoreid(){
+  int semid;
+  key_t key;
+  
+  if((key = ftok("/root/sharememory/semaphorekey", 1024)) < 0){
+      perror("ftok error");
+          return -1;
+  }
+  
+  semid = semget(key, 1, IPC_CREAT|0777);
+  return semid;
+}
+ 
+int semaphore_init (int semid) {
+  union semun argument; 
+  unsigned short values[1]; 
+  values[0] = 1; 
+  argument.array = values; 
+  return semctl (semid, 0, SETALL, argument); 
+}
+ 
+int semaphore_p (int semid) {
+  struct sembuf operations[1]; 
+  operations[0].sem_num = 0; 
+  operations[0].sem_op = -1; 
+  operations[0].sem_flg = SEM_UNDO; 
+  return semop (semid, operations, 1); 
+}
+ 
+int semaphore_v (int semid) {
+  struct sembuf operations[1]; 
+  operations[0].sem_num = 0; 
+  operations[0].sem_op = 1; 
+  operations[0].sem_flg = SEM_UNDO; 
+  return semop (semid, operations, 1); 
+} 
+```
+
+producer code：
+
+```c
+#include "share.h"
+ 
+int main() {
+  void *shm = NULL;
+  struct shm_data *shared = NULL;
+  int shmid = get_shmid();
+  int semid = get_semaphoreid();
+  int i;
+  
+  shm = shmat(shmid, (void*)0, 0);
+  if(shm == (void*)-1){
+    exit(0);
+  }
+  shared = (struct shm_data*)shm;
+  memset(shared, 0, sizeof(struct shm_data));
+  semaphore_init(semid);
+  while(1){
+    semaphore_p(semid);
+    if(shared->datalength > 0){
+      semaphore_v(semid);
+      sleep(1);
+    } else {
+      printf("how many integers to caculate : ");
+      scanf("%d",&shared->datalength);
+      if(shared->datalength > MAX_NUM){
+        perror("too many integers.");
+        shared->datalength = 0;
+        semaphore_v(semid);
+        exit(1);
+      }
+      for(i=0;i<shared->datalength;i++){
+        printf("Input the %d integer : ", i);
+        scanf("%d",&shared->data[i]);
+      }
+      semaphore_v(semid);
+    }
+  }
+}
+```
+
+consumer code：
+
+```c
+#include "share.h"
+ 
+int main() {
+  void *shm = NULL;
+  struct shm_data *shared = NULL;
+  int shmid = get_shmid();
+  int semid = get_semaphoreid();
+  int i;
+  
+  shm = shmat(shmid, (void*)0, 0);
+  if(shm == (void*)-1){
+    exit(0);
+  }
+  shared = (struct shm_data*)shm;
+  while(1){
+    semaphore_p(semid);
+    if(shared->datalength > 0){
+      int sum = 0;
+      for(i=0;i<shared->datalength-1;i++){
+        printf("%d+",shared->data[i]);
+        sum += shared->data[i];
+      }
+      printf("%d",shared->data[shared->datalength-1]);
+      sum += shared->data[shared->datalength-1];
+      printf("=%d\n",sum);
+      memset(shared, 0, sizeof(struct shm_data));
+      semaphore_v(semid);
+    } else {
+      semaphore_v(semid);
+      printf("no tasks, waiting.\n");
+      sleep(1);
+    }
+  }
+}
+```
+
+### 信号
+
+查询所有信号：
+
+```bash
+> kill -l
+ 1) SIGHUP       2) SIGINT       3) SIGQUIT      4) SIGILL       5) SIGTRAP
+ 6) SIGABRT      7) SIGBUS       8) SIGFPE       9) SIGKILL     10) SIGUSR1
+11) SIGSEGV     12) SIGUSR2     13) SIGPIPE     14) SIGALRM     15) SIGTERM
+16) SIGSTKFLT   17) SIGCHLD     18) SIGCONT     19) SIGSTOP     20) SIGTSTP
+21) SIGTTIN     22) SIGTTOU     23) SIGURG      24) SIGXCPU     25) SIGXFSZ
+26) SIGVTALRM   27) SIGPROF     28) SIGWINCH    29) SIGIO       30) SIGPWR
+31) SIGSYS      34) SIGRTMIN    35) SIGRTMIN+1  36) SIGRTMIN+2  37) SIGRTMIN+3
+38) SIGRTMIN+4  39) SIGRTMIN+5  40) SIGRTMIN+6  41) SIGRTMIN+7  42) SIGRTMIN+8
+43) SIGRTMIN+9  44) SIGRTMIN+10 45) SIGRTMIN+11 46) SIGRTMIN+12 47) SIGRTMIN+13
+48) SIGRTMIN+14 49) SIGRTMIN+15 50) SIGRTMAX-14 51) SIGRTMAX-13 52) SIGRTMAX-12
+53) SIGRTMAX-11 54) SIGRTMAX-10 55) SIGRTMAX-9  56) SIGRTMAX-8  57) SIGRTMAX-7
+58) SIGRTMAX-6  59) SIGRTMAX-5  60) SIGRTMAX-4  61) SIGRTMAX-3  62) SIGRTMAX-2
+63) SIGRTMAX-1  64) SIGRTMAX
+```
+
+信号处理方式有3种：
+
+1. **默认处理**
+
+2. **忽略**
+
+3. **捕捉并处理**
+
+   ```c
+   struct sigaction {
+   	__sighandler_t sa_handler;
+   	unsigned long sa_flags;
+   	__sigrestore_t sa_restorer;
+   	sigset_t sa_mask;		/* mask last for extensibility */
+   };
+   
+   int sigaction(int signum, const struct sigaction *act,
+                        struct sigaction *oldact);
+   ```
+
+需要注意的是：**中断是在内核态进行处理的；信号是在用户态进行处理的**。
+
+> 有些严重的信号，进程会被Kill掉
+
 ## 网络协议栈
+
+详见网络协议文档！！
 
 ## 虚拟化
 
+TODO...
+
 ## 容器化
+
+### 概述
+
+仅隔离部分指定的资源，专用于某个用户进程，无需虚拟化一大堆硬件。
+
+![下载 (40)](assets/下载 (40).jpeg)
+
+### Namespce
+
+主要用来做**资源隔离**。Linux内核共实现了以下几种Namespce：
+
+- **UTS**：表示不同的 namespace 可以配置不同的 hostname
+- **User**：表示不同的 namespace 可以配置不同的用户和组
+- **Mount**：表示不同的 namespace 的文件系统挂载点是隔离的
+- **PID**：表示不同的 namespace 有完全独立的 pid
+- **Network**：表示不同的 namespace 有独立的网络协议栈
+- **IPC**：表示不同的namespace有不同的IPC对象
+
+查询Docker容器的Namespace信息如下：
+
+```bash
+# 获取容器ID
+docker ps
+
+# 获取容器对应的进程PID
+docker inspect f604f0e34bc2
+
+# 查询PID对应的ns信息
+ls -l /proc/58212/ns 
+lrwxrwxrwx 1 root root 0 Jul 16 19:19 ipc -> ipc:[4026532278]
+lrwxrwxrwx 1 root root 0 Jul 16 19:19 mnt -> mnt:[4026532276]
+lrwxrwxrwx 1 root root 0 Jul 16 01:43 net -> net:[4026532281]
+lrwxrwxrwx 1 root root 0 Jul 16 19:19 pid -> pid:[4026532279]
+lrwxrwxrwx 1 root root 0 Jul 16 19:19 user -> user:[4026531837]
+lrwxrwxrwx 1 root root 0 Jul 16 19:19 uts -> uts:[4026532277]
+```
+
+操作Namespace的方式如下：
+
+```
+# 进入指定的namespace
+nsenter --target 58212 --mount --uts --ipc --net --pid -- env --ignore-environment -- /bin/bash
+
+# 离开当前ns，并加入新的ns
+unshare --mount --ipc --pid --net --mount-proc=/proc --fork /bin/bash
+
+# 创建子进程，并将子进程放到新的ns中。父进程不变
+# arg可选：CLONE_NEWUTS、CLONE_NEWUSER、CLONE_NEWNS、CLONE_NEWPID。CLONE_NEWNET
+int clone(int (*fn)(void *), void *child_stack, int flags, void *arg);
+
+# 将当前进程放到已有的ns中
+# nstype 用来指定 namespace 的类型，可以设置为 CLONE_NEWUTS、CLONE_NEWUSER、CLONE_NEWNS、CLONE_NEWPID 和 CLONE_NEWNET
+int setns(int fd, int nstype);
+
+# 使当前进程退出当前的 namespace，并加入到新创建的namespace中
+int unshare(int flags);
+```
+
+### CGroups
+
+全称Control Group，主要用来**限制资源使用**。CGroups定义了下面一系列子系统，每个子系统用于控制某一类资源：
+
+- cpu：限制进程的 cpu 使用率
+- cpuacct：统计 cgroups 中的进程的 cpu 使用报告
+- cpuset：为 cgroups 中的进程分配单独的 cpu 节点或者内存节点
+- memory：限制进程的 memory 使用量
+- blkio：限制进程的块设备 io
+- devices：控制进程能够访问某些设备
+- net_cls：标记 cgroups 中进程的网络数据包，然后可以使用 tc 模块（traffic control）对数据包进行控制。
+- freezer：可以挂起或者恢复 cgroups 中的进程
+
+在 Linux 上，为了操作 Cgroup，有一个专门的 Cgroup 文件系统，位于/sys/fs/cgroup/目录下。目录结构如下所示：
+
+```
+drwxr-xr-x 5 root root  0 May 30 17:00 blkio
+lrwxrwxrwx 1 root root 11 May 30 17:00 cpu -> cpu,cpuacct
+lrwxrwxrwx 1 root root 11 May 30 17:00 cpuacct -> cpu,cpuacct
+drwxr-xr-x 5 root root  0 May 30 17:00 cpu,cpuacct
+drwxr-xr-x 3 root root  0 May 30 17:00 cpuset
+drwxr-xr-x 5 root root  0 May 30 17:00 devices
+drwxr-xr-x 3 root root  0 May 30 17:00 freezer
+drwxr-xr-x 3 root root  0 May 30 17:00 hugetlb
+drwxr-xr-x 5 root root  0 May 30 17:00 memory
+lrwxrwxrwx 1 root root 16 May 30 17:00 net_cls -> net_cls,net_prio
+drwxr-xr-x 3 root root  0 May 30 17:00 net_cls,net_prio
+lrwxrwxrwx 1 root root 16 May 30 17:00 net_prio -> net_cls,net_prio
+drwxr-xr-x 3 root root  0 May 30 17:00 perf_event
+drwxr-xr-x 5 root root  0 May 30 17:00 pids
+drwxr-xr-x 5 root root  0 May 30 17:00 systemd
+```
+
+Docker操作CGroups的方式如下图所示：
+
+![下载 (4)](assets/下载 (4).png)
+
+## Q&A
+
+1. 讲讲操作系统启动和初始化的过程？
+2. 讲讲进程、线程和协程的区别
+3. 讲讲函数堆栈调用原理
+4. 讲讲对物理内存和虚拟内存的理解
+5. 讲讲VFS的机制
+6. 讲讲文件写入流程
+7. 讲讲对进程IPC的理解
+8. 讲讲信号和中断机制
+
+## Reference
+
+http://www.gcjlovecl.ltd/15-%E8%B6%A3%E8%B0%88Linux%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F/
+
