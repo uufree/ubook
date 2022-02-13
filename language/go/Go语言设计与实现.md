@@ -760,7 +760,7 @@ func fibonacci(c, quit chan int) {
 
 注意：**`select .. case ..`中的表达式必须都是Channel的收发操作**。
 
-Go语言的select有两个特征：
+Go语言的select有3个特征：
 
 - select能在channel上进行**非阻塞的收发操作**。以读取error为例：
 
@@ -803,6 +803,36 @@ Go语言的select有两个特征：
   			println("case1")
   		case <-ch:
   			println("case2")
+  		}
+  	}
+  }
+  
+  $ go run main.go
+  case1
+  case2
+  case1
+  ...
+  ```
+
+- 在`for .. select ..`中使用break，仅能跳出select，无法跳出for。这点在使用时需要额外注意
+
+  ```go
+  func main() {
+  	ch := make(chan int)
+  	go func() {
+  		for range time.Tick(1 * time.Second) {
+  			ch <- 0
+  		}
+  	}()
+  
+  	for {
+  		select {
+  		case <-ch:
+  			println("case1")
+        break
+  		case <-ch:
+  			println("case2")
+        break
   		}
   	}
   }
@@ -961,12 +991,404 @@ select、case关键字是Go语言特有的控制结构，它的实现原理比�
 
 ### defer
 
+**defer同样是由编译器和运行时函数共同完成的**。同样，在使用defer的过程中，有3个需要注意的现象：
 
+```go
+// 1. defer是倒序执行的
+func main() {
+	for i := 0; i < 5; i++ {
+		defer fmt.Println(i)
+	}
+}
+
+$ go run main.go
+4
+3
+2
+1
+0
+
+// 2. defer会在函数返回时执行，与作用域无关
+func main() {
+    {
+        defer fmt.Println("defer runs")
+        fmt.Println("block ends")
+    }
+    
+    fmt.Println("main ends")
+}
+
+$ go run main.go
+block ends
+main ends
+defer runs
+
+// 3. defer的参数同样是值传递
+// 错误的用法
+func main() {
+	startedAt := time.Now()
+	defer fmt.Println(time.Since(startedAt))
+	
+	time.Sleep(time.Second)
+}
+
+$ go run main.go
+0s
+
+// 正确的用法
+func main() {
+	startedAt := time.Now()
+	defer func() { fmt.Println(time.Since(startedAt)) }()
+	
+	time.Sleep(time.Second)
+}
+
+$ go run main.go
+1s
+```
+
+编译器在检测到defer之后，会**将新检测到的defer追加到Goroutine defer链表的最前面**。并且在执行的时候，也是从前往后的顺序执行。如下图所示：
+
+![2020-01-19-15794017184614-golang-new-defer](assets/2020-01-19-15794017184614-golang-new-defer.png)
+
+数据结构如下：
+
+```go
+type _defer struct {
+	siz       int32
+	started   bool
+	openDefer bool
+	sp        uintptr
+	pc        uintptr
+	fn        *funcval
+	_panic    *_panic
+	link      *_defer
+}
+```
+
+不同的语言版本，导致最终的执行机制是不一样的：
+
+- **堆上分配**：1.1～1.12
+  1. 编译期将defer转化为`runtime.deferproc`
+  2. 运行时将`runtime.deferproc`转化为`struct _defer`，并加入Goroutine的defer链表
+  3. 函数结束时，依次执行链表中的`_defer.fn`
+  4. 在整个执行过程中，`struct _defer`存在于堆上
+- **栈上分配**：1.13
+  1. 当defer关键字仅执行一次时，会将`struct _defer`分配至栈上
+- **开放编码**：1.14～
+  1. 如果在编译期间可以确定defer的执行内容，会直接在相应的位置插入代码，否则走defer链表流程
 
 ### panic、recover
 
+异常控制关键字，使用方式如下：
+
+```go
+// 1. 最基本的panic控制
+func main() {
+	defer println("in main")
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	
+  panic("")
+	time.Sleep(1 * time.Second)
+}
+
+// 2. 这种方式依旧会导致panic。因为panic、recover必须出现在同一个goroutine中
+func main() {
+	defer println("in main")
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	
+  
+	go func() {
+		defer println("in goroutine1")
+		defer println("in goroutine2")
+		defer println("in goroutine3")
+		defer println("in goroutine4")
+		panic("")
+	}()
+
+	time.Sleep(1 * time.Second)
+}
+```
+
+在使用过程中，有3个需要注意的地方：
+
+1. **发生panic时，依旧会触发defer。但是仅触发当前goroutine中的defer list**
+2. **panic、recover必须出现在同一个goroutine中，recover才能起作用**
+3. **recover必须出现在panic前面**
+
+panic、recover的执行流程如下所示：
+
+1. 编译期：将panic转化为`runtime.gopanic`；将recover转化为`runtime.gorecover`
+2. 运行期：
+   - 遇到`runtime.gopanic`时：依次执行当前goroutine.defer-list中的func
+   - 遇到`runtime.gorecover`：将recoverd标记修改为true，并**返回panic的参数**
+   - 没有遇到`runtime.gorecover`：执行完当前goroutine.defer-list中的func后，会主动终止程序，并打印panic的参数
+
 ### make、new
 
+- `make`用于**分配堆内存并初始化内置的数据结构**。例如：Slice、Map、Channel。实现如下图所示：
+
+  ![golang-make-typecheck](assets/golang-make-typecheck.png)
+
+  在编译期间，Go语言会将`make`关键字转化为`OMAKESLICE`、`OMAKEMAP`、`OMAKECHAN`等三种不同的节点
+
+- `new`**仅在堆上分配内存，不做初始化操作**。实现上，会调用这个函数：
+
+  ```go
+  func newobject(typ *_type) unsafe.Pointer {
+  	return mallocgc(typ.size, typ, true)
+  }
+  ```
+
+使用demo：
+
+```go
+// make
+slice := make([]int, 0, 100)
+hash := make(map[int]bool, 10)
+ch := make(chan int, 5)
+
+// new
+i := new(int)
+*i = 1
+```
+
 ## 并发编程
+
+### Context
+
+**Context主要用于多个协程间的信号同步**。定义如下：
+
+```go
+type Context interface {
+	Deadline() (deadline time.Time, ok bool)
+	Done() <-chan struct{}
+	Err() error
+	Value(key interface{}) interface{}
+}
+```
+
+共提供了6种实例：
+
+```go
+// 由context.emptyCtx初始化而来，没有任何功能
+func Background() Context {...}
+func TODO() Context {...}
+
+// 功能context
+func WithCancel(parent Context) (ctx Context, cancel CancelFunc) {...}
+func WithDeadline(parent Context, d time.Time) (Context, CancelFunc) {...}
+func WithTimeout(parent Context, timeout time.Duration) (Context, CancelFunc) {...}
+func WithValue(parent Context, key, val interface{}) Context {...}
+```
+
+当正确使用Context时，协程树的生命周期如下图所示：
+
+![golang-with-context](assets/golang-with-context.png)
+
+代码如下所示：
+
+```go
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	go handle(ctx, 500*time.Millisecond)
+	select {
+	case <-ctx.Done():
+		fmt.Println("main", ctx.Err())
+	}
+}
+
+func handle(ctx context.Context, duration time.Duration) {
+	select {
+	case <-ctx.Done():
+		fmt.Println("handle", ctx.Err())
+	case <-time.After(duration):
+		fmt.Println("process request with", duration)
+	}
+}
+```
+
+**当父Context取消时，相关的子Context也会相应的结束**：
+
+```go
+func main() {
+	wg := sync.WaitGroup{}
+	parent, cancel := context.WithCancel(context.Background())
+	child1, cancel1 := context.WithCancel(parent)
+	defer cancel1()
+	child2, cancel2 := context.WithCancel(parent)
+	defer cancel2()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Println("child1 ticker")
+			case <-child1.Done():
+				fmt.Println("child1 done")
+				return
+			}
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Println("child2 ticker")
+			case <-child2.Done():
+				fmt.Println("child2 done")
+				return
+			}
+		}
+	}()
+
+	time.Sleep(3 * time.Second)
+
+	cancel()
+	wg.Wait()
+}
+```
+
+父Context与子Context间信号传递的原理如下：
+
+```go
+// 调用WithXXX时，会使用这个函数构建父、子Context之间的联系
+func propagateCancel(parent Context, child canceler) {
+	done := parent.Done()
+	if done == nil {
+		return // 说明parent context是一个非cancel类型的context，例如WithValue、TODO、Background
+	}
+	select {
+	case <-done:
+		child.cancel(false, parent.Err()) // 检测父上下文是否已经被取消
+		return
+	default:
+	}
+	
+  // 将child context注册至parent context中。并启用select监听parent.Done和child.Done
+	if p, ok := parentCancelCtx(parent); ok {	
+		p.mu.Lock()
+		if p.err != nil {
+			child.cancel(false, p.err)
+		} else {
+			p.children[child] = struct{}{}
+		}
+		p.mu.Unlock()
+	} else {
+		go func() {
+			select {
+			case <-parent.Done():
+				child.cancel(false, parent.Err())
+			case <-child.Done():
+			}
+		}()
+	}
+}
+
+// 取消核心实现。包括WithCancel、WithTimeout、WithDeadline
+func (c *cancelCtx) cancel(removeFromParent bool, err error) {
+	c.mu.Lock()
+	if c.err != nil {
+		c.mu.Unlock()
+		return
+	}
+	c.err = err
+	if c.done == nil {
+		c.done = closedchan
+	} else {
+		close(c.done)	// close done channel
+	}
+  
+  // 遍历child context列表，并逐个执行child的cancel函数
+	for child := range c.children {
+		child.cancel(false, err)
+	}
+	c.children = nil
+	c.mu.Unlock()
+	
+	if removeFromParent {
+		removeChild(c.Context, c)
+	}
+}
+```
+
+### 同步原语
+
+Go语言在package sync中提供了一些同步原语，如下图所示：
+
+![2020-01-23-15797104327981-golang-basic-sync-primitives](assets/2020-01-23-15797104327981-golang-basic-sync-primitives.png)
+
+#### 基本原语
+
+##### **Mutex**
+
+- 声明
+
+  ```
+  type Mutex struct {
+  	state int32					// 表示当前互斥锁的状态 
+  	sema  uint32				// 用于控制锁状态的信号量
+  }
+  ```
+
+- 状态
+
+  互斥锁状态的表示比较复杂，如下图所示：
+
+  ![2020-01-23-15797104328010-golang-mutex-state](assets/2020-01-23-15797104328010-golang-mutex-state.png)
+
+  在默认情况下，所有的状态位都是0。每个状态位的定义如下：
+
+  - **mutexLocked**：表示互斥锁的锁定状态
+  - **mutexWoken**：表示从正常模式被从唤醒
+  - **mutexStarving**：当前的互斥锁进入饥饿状态
+  - **waitersCount**：当前互斥锁上等待的 Goroutine 个数
+
+- 访问模式
+
+  - **正常模式**：锁的等待者会按照先进先出的顺序获取锁
+  - **饥饿模式**：
+
+
+
+
+
+- **RWMutex**
+- **WaitGroup**
+- **Once**
+- **Cond**
+
+#### 高级原语
+
+- **ErrGroup**
+- **Semaphore**
+- **SingleFlihght**
+
+### 定时器
+
+### Channel
+
+### 调度器
+
+### 轮询器
+
+### 系统监控
 
 ## 内存管理
