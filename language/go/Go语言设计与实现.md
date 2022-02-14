@@ -1363,25 +1363,636 @@ Go语言在package sync中提供了一些同步原语，如下图所示：
 
 - 访问模式
 
-  - **正常模式**：锁的等待者会按照先进先出的顺序获取锁
-  - **饥饿模式**：
+  - **正常模式**：锁的等待者会按照先进先出的顺序获取锁。**刚被唤起的Goroutine与新创建的Goroutine竞争时，大概率会获取不到锁。**
+  - **饥饿模式**：锁会直接交给等待队列最前面的Goroutine。**新的Goroutine在该状态下不能获取锁、也不会进入自旋状态，它们只会在队列的末尾等待。**
+
+  饥饿模式的引入只要是为了**保证互斥锁的公正性**。一旦Goroutine超过1ms没有获取到锁，它就会将当前互斥锁切换饥饿模式，防止部分 Goroutine 被『饿死』；如果一个Goroutine获得了互斥锁并且它等待的时间少于1ms，那么当前的互斥锁就会切换回正常模式。
+
+- 加锁与解锁
+
+  > 自旋是一种多线程同步机制，当前的进程在进入自旋的过程中会一直保持 CPU 的占用，持续检查某个条件是否为真。在多核的 CPU 上，自旋可以避免 Goroutine 的切换，使用恰当会对性能带来很大的增益
+
+  ```go
+  func (m *Mutex) Lock() {
+    // 判读是否能直接获取锁。能的话直接加锁；不能的话，陷入自旋
+  	if atomic.CompareAndSwapInt32(&m.state, 0, mutexLocked) {
+  		return
+  	}
+    
+    // spin lock
+  	m.lockSlow()
+  }
+  
+  // 如果能在短暂的自旋后获取锁，那就直接获取锁；不能的话，就挂起当前goroutine
+  // 进入自旋的条件： 
+  // 1. 在普通模式下才能进入自旋
+  // 2. 当前goroutin进入自旋的次数小于4次
+  // 3. 当前机器上至少存在一个正在运行的处理器 P 并且处理的运行队列为空
+  func (m *Mutex) lockSlow() {
+  	var waitStartTime int64
+  	starving := false
+  	awoke := false
+  	iter := 0
+  	old := m.state
+  	for {
+  		if old&(mutexLocked|mutexStarving) == mutexLocked && runtime_canSpin(iter) {
+  			if !awoke && old&mutexWoken == 0 && old>>mutexWaiterShift != 0 &&
+  				atomic.CompareAndSwapInt32(&m.state, old, old|mutexWoken) {
+  				awoke = true
+  			}
+  			runtime_doSpin()
+  			iter++
+  			old = m.state
+  			continue
+  		}
+      new := old
+  		if old&mutexStarving == 0 {
+  			new |= mutexLocked
+  		}
+  		if old&(mutexLocked|mutexStarving) != 0 {
+  			new += 1 << mutexWaiterShift
+  		}
+  		if starving && old&mutexLocked != 0 {
+  			new |= mutexStarving
+  		}
+  		if awoke {
+  			new &^= mutexWoken
+  		}
+  		if atomic.CompareAndSwapInt32(&m.state, old, new) {
+  			if old&(mutexLocked|mutexStarving) == 0 {
+  				break // 通过 CAS 函数获取了锁
+  			}
+  			...
+  			runtime_SemacquireMutex(&m.sema, queueLifo, 1)
+  			starving = starving || runtime_nanotime()-waitStartTime > starvationThresholdNs
+  			old = m.state
+  			if old&mutexStarving != 0 {
+  				delta := int32(mutexLocked - 1<<mutexWaiterShift)
+  				if !starving || old>>mutexWaiterShift == 1 {
+  					delta -= mutexStarving
+  				}
+  				atomic.AddInt32(&m.state, delta)
+  				break
+  			}
+  			awoke = true
+  			iter = 0
+  		} else {
+  			old = m.state
+  		}
+  	}
+  }
+  
+  // 真正做自旋的操作。使cpu执行30次PAUSE指令
+  func sync_runtime_doSpin() {
+  	procyield(active_spin_cnt)
+  }
+  
+  TEXT runtime·procyield(SB),NOSPLIT,$0-0
+  	MOVL	cycles+0(FP), AX
+  again:
+  	PAUSE
+  	SUBL	$1, AX
+  	JNZ	again
+  	RET
+  
+  // 解锁
+  func (m *Mutex) Unlock() {
+    // 修改原子量后，判断当前锁是否有等待的goroutine。如果有，还需要进一步唤醒等待着
+  	new := atomic.AddInt32(&m.state, -mutexLocked)
+  	if new != 0 {
+  		m.unlockSlow(new)
+  	}
+  }
+  
+  func (m *Mutex) unlockSlow(new int32) {
+  	if (new+mutexLocked)&mutexLocked == 0 {
+  		throw("sync: unlock of unlocked mutex")
+  	}
+  	if new&mutexStarving == 0 { // 唤醒正常模式下的等待者
+  		old := new
+  		for {
+  			if old>>mutexWaiterShift == 0 || old&(mutexLocked|mutexWoken|mutexStarving) != 0 {
+  				return
+  			}
+  			new = (old - 1<<mutexWaiterShift) | mutexWoken
+  			if atomic.CompareAndSwapInt32(&m.state, old, new) {
+  				runtime_Semrelease(&m.sema, false, 1)
+  				return
+  			}
+  			old = m.state
+  		}
+  	} else { // 唤醒饥饿模式下的等待者
+  		runtime_Semrelease(&m.sema, true, 1)
+  	}
+  }
+  ```
+
+##### **RWMutex**
+
+基于Mutex的实现，封装了一套读写锁接口：
+
+```go
+type RWMutex struct {
+	w           Mutex
+	writerSem   uint32
+	readerSem   uint32
+	readerCount int32
+	readerWait  int32
+}
+```
+
+实现如下所示：
+
+```go
+// 写锁
+func (rw *RWMutex) Lock() {
+  // 加锁
+  rw.w.Lock()
+  // 检查当前的读锁数量。如果没有读锁，那就加锁成功；如果有读锁，那就进入休眠状态，等待所有读锁执行完成
+	r := atomic.AddInt32(&rw.readerCount, -rwmutexMaxReaders) + rwmutexMaxReaders
+	if r != 0 && atomic.AddInt32(&rw.readerWait, r) != 0 {
+		runtime_SemacquireMutex(&rw.writerSem, false, 0)
+	}
+}
+
+func (rw *RWMutex) Unlock() {
+  // 获取读锁数量
+	r := atomic.AddInt32(&rw.readerCount, rwmutexMaxReaders)
+	if r >= rwmutexMaxReaders {
+		throw("sync: Unlock of unlocked RWMutex")
+	}
+  // 逐个唤醒阻塞在读锁上的线程
+	for i := 0; i < int(r); i++ {
+		runtime_Semrelease(&rw.readerSem, false, 0)
+	}
+  // 解锁
+	rw.w.Unlock()
+}
+
+// 读锁
+func (rw *RWMutex) RLock() {
+  // 返回负数，意味着当前有写锁。需要进入阻塞状态
+	if atomic.AddInt32(&rw.readerCount, 1) < 0 {
+		runtime_SemacquireMutex(&rw.readerSem, false, 0)
+	}
+}
+
+func (rw *RWMutex) RUnlock() {
+	if r := atomic.AddInt32(&rw.readerCount, -1); r < 0 {
+		rw.rUnlockSlow(r)
+	}
+}
+```
+
+##### **WaitGroup**
+
+**WaitGroup可以控制并发Goroutine的生命周期**。实现如下所示：
+
+```go
+type WaitGroup struct {
+	noCopy noCopy					// 保证Wg上不会发上copy之类的操作
+	state1 [3]uint32			// 存储状态和信号量
+}
+```
+
+状态字段的布局如下所示：
+
+![2020-01-23-15797104328035-golang-waitgroup-state](assets/2020-01-23-15797104328035-golang-waitgroup-state.png)
+
+接口实现如下：
+
+```go
+func (wg *WaitGroup) Add(delta int) {
+	statep, semap := wg.state()
+	state := atomic.AddUint64(statep, uint64(delta)<<32)
+	v := int32(state >> 32)
+  // w是被wg阻塞的goroutine
+	w := uint32(state)
+	if v < 0 {
+		panic("sync: negative WaitGroup counter")
+	}
+	if v > 0 || w == 0 {
+		return
+	}
+	*statep = 0
+  
+  // 逐个增加被阻塞的goroutine
+	for ; w != 0; w-- {
+		runtime_Semrelease(semap, false, 0)
+	}
+}
 
 
+func (wg *WaitGroup) Done() {
+  wg.Add(-1)
+}
 
+// 当计数器归零时，陷入睡眠状态的Goroutine会被唤醒
+func (wg *WaitGroup) Wait() {
+	statep, semap := wg.state()
+	for {
+		state := atomic.LoadUint64(statep)
+		v := int32(state >> 32)
+		if v == 0 {
+			return
+		}
+		if atomic.CompareAndSwapUint64(statep, state, state+1) {
+			runtime_Semacquire(semap)
+			if +statep != 0 {
+				panic("sync: WaitGroup is reused before previous Wait has returned")
+			}
+			return
+		}
+	}
+}
+```
 
+##### **Once**
 
-- **RWMutex**
-- **WaitGroup**
-- **Once**
-- **Cond**
+**Once可以保证在Go程序运行期间的某段代码只会执行一次**。使用方式如下图所示：
+
+```go
+func main() {
+    o := &sync.Once{}
+    for i := 0; i < 10; i++ {
+        o.Do(func() {
+            fmt.Println("only once")
+        })
+    }
+}
+
+$ go run main.go
+only once
+```
+
+实现如下所示：
+
+```go
+type Once struct {
+	done uint32
+	m    Mutex
+}
+
+func (o *Once) Do(f func()) {
+	if atomic.LoadUint32(&o.done) == 0 {
+		o.doSlow(f)
+	}
+}
+
+func (o *Once) doSlow(f func()) {
+	o.m.Lock()
+	defer o.m.Unlock()
+	if o.done == 0 {
+		defer atomic.StoreUint32(&o.done, 1)
+		f()
+	}
+}
+```
+
+##### **Cond**
+
+条件变量，主要用于同步协程。使用方式如下所示：
+
+```go
+var status int64
+
+func main() {
+	c := sync.NewCond(&sync.Mutex{})
+	for i := 0; i < 10; i++ {
+		go listen(c)
+	}
+	time.Sleep(1 * time.Second)
+	go broadcast(c)
+
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	<-ch
+}
+
+func broadcast(c *sync.Cond) {
+	c.L.Lock()
+	atomic.StoreInt64(&status, 1)
+	c.Broadcast()
+	c.L.Unlock()
+}
+
+func listen(c *sync.Cond) {
+	c.L.Lock()
+	for atomic.LoadInt64(&status) != 1 {
+		c.Wait()
+	}
+	fmt.Println("listen")
+	c.L.Unlock()
+}
+
+$ go run main.go
+listen
+...
+listen
+```
+
+实现如下所示：
+
+```go
+type Cond struct {
+	noCopy  noCopy						// 防止编译期间发生copy
+	L       Locker						// Lock，用于保护notify变量
+	notify  notifyList				// goroutine链表
+	checker copyChecker				// 禁止运行期发生拷贝
+}
+
+type notifyList struct {
+	wait uint32
+	notify uint32
+
+	lock mutex
+	head *sudog
+	tail *sudog
+}
+
+// wait
+func (c *Cond) Wait() {
+	c.checker.check()
+	t := runtime_notifyListAdd(&c.notify) // 将当前goroutine加入wait list
+	c.L.Unlock()
+	runtime_notifyListWait(&c.notify, t) // 主动让出处理器的使用权
+	c.L.Lock()
+}
+
+// single
+func (c *Cond) Signal() {
+	c.checker.check()
+	runtime_notifyListNotifyOne(&c.notify)		// 通知等待队列最前端的goroutine
+}
+
+// broadcast
+func (c *Cond) Broadcast() {
+	c.checker.check()
+	runtime_notifyListNotifyAll(&c.notify)		// 通知等待队列中所有的goroutine
+}
+```
 
 #### 高级原语
 
-- **ErrGroup**
-- **Semaphore**
-- **SingleFlihght**
+##### **ErrGroup**
 
-### 定时器
+**为一组Goroutine提供了同步、错误传播以及上下文取消的功能**。使用方式如下图所示：
+
+```go
+var g errgroup.Group
+var urls = []string{
+    "http://www.golang.org/",
+    "http://www.google.com/",
+}
+for i := range urls {
+    url := urls[i]
+    g.Go(func() error {
+        resp, err := http.Get(url)
+        if err == nil {
+            resp.Body.Close()
+        }
+        return err
+    })
+}
+
+// 如果返回错误 — 这一组 Goroutine 最少返回一个错误
+// 如果返回空值 — 所有 Goroutine 都成功执行
+if err := g.Wait(); err == nil {
+    fmt.Println("Successfully fetched all URLs.")
+}
+```
+
+实现如下所示：
+
+```go
+type Group struct {
+	cancel func()						// 用于在多个goroutine上同步取消信号
+	wg sync.WaitGroup				// 用于等待一组goroutine完成工作
+	errOnce sync.Once				// 用于保证只接收一个子任务返回的错误
+	err     error						
+}
+
+func (g *Group) Go(f func() error) {
+	g.wg.Add(1)
+
+	go func() {
+		defer g.wg.Done()
+
+		if err := f(); err != nil {
+			g.errOnce.Do(func() {
+				g.err = err
+				if g.cancel != nil {
+					g.cancel()
+				}
+			})
+		}
+	}()
+}
+
+func (g *Group) Wait() error {
+	g.wg.Wait()
+	if g.cancel != nil {
+		g.cancel()
+	}
+	return g.err
+}
+```
+
+##### **Semaphore**
+
+信号量是在并发编程中常见的一种同步机制，在需要控制访问资源的进程数量时就会用到信号量，它会保证持有的计数器在 0 到初始化的权重之间波动。
+
+- 每次获取资源时都会将信号量中的计数器减去对应的数值，在释放时重新加回来；
+- 当遇到计数器大于信号量大小时，会进入休眠等待其他线程释放信号；
+
+实现如下所示：
+
+```go
+type Weighted struct {
+	size    int64
+	cur     int64
+	mu      sync.Mutex
+	waiters list.List
+}
+
+// new 
+func NewWeighted(n int64) *Weighted {
+	w := &Weighted{size: n}
+	return w
+}
+
+// block acquire
+func (s *Weighted) Acquire(ctx context.Context, n int64) error {
+  // 当信号量中剩余的资源大于获取的资源并且没有等待的 Goroutine 时，会直接获取信号量
+  // 当需要获取的信号量大于weighted上限时，由于不可能满足条件会直接返回错误
+	if s.size-s.cur >= n && s.waiters.Len() == 0 {
+		s.cur += n
+		return nil
+	}
+	
+  // 遇到其他情况时会将当前Goroutine加入到等待列表并通过select等待调度器唤醒当前Goroutine，Goroutine被唤醒后会获取信号量；
+	...
+	ready := make(chan struct{})
+	w := waiter{n: n, ready: ready}
+	elem := s.waiters.PushBack(w)
+	select {
+	case <-ctx.Done():
+		err := ctx.Err()
+		select {
+		case <-ready:
+			err = nil
+		default:
+			s.waiters.Remove(elem)
+		}
+		return err
+	case <-ready:
+		return nil
+	}
+}
+
+// try acquire（unblock）
+func (s *Weighted) TryAcquire(n int64) bool {
+	s.mu.Lock()
+	success := s.size-s.cur >= n && s.waiters.Len() == 0
+	if success {
+		s.cur += n
+	}
+	s.mu.Unlock()
+	return success
+}
+
+// release
+// 释放变量后，逐步解放waiters
+func (s *Weighted) Release(n int64) {
+	s.mu.Lock()
+	s.cur -= n
+	for {
+		next := s.waiters.Front()
+		if next == nil {
+			break
+		}
+		w := next.Value.(waiter)
+		if s.size-s.cur < w.n {
+			break
+		}
+		s.cur += w.n
+		s.waiters.Remove(next)
+		close(w.ready)
+	}
+	s.mu.Unlock()
+}
+```
+
+##### **SingleFlihght**
+
+**主要用于缓存请求结果**，使用场景如下图所示：
+
+![2020-01-23-15797104328078-golang-extension-single-flight](assets/2020-01-23-15797104328078-golang-extension-single-flight.png)
+
+使用方式如下所示：
+
+```go
+type service struct {
+    requestGroup singleflight.Group
+}
+
+func (s *service) handleRequest(ctx context.Context, request Request) (Response, error) {
+    v, err, _ := requestGroup.Do(request.Hash(), func() (interface{}, error) {
+        rows, err := // select * from tables
+        if err != nil {
+            return nil, err
+        }
+        return rows, nil
+    })
+    if err != nil {
+        return nil, err
+    }
+    return Response{
+        rows: rows,
+    }, nil
+}
+```
+
+实现如下所示：
+
+```go
+type Group struct {
+	mu sync.Mutex
+	m  map[string]*call				// 缓存请求结果
+}
+
+type call struct {
+	wg sync.WaitGroup
+
+	val interface{}
+	err error
+
+	dups  int
+	chans []chan<- Result
+}
+
+func (g *Group) Do(key string, fn func() (interface{}, error)) (v interface{}, err error, shared bool) {
+	g.mu.Lock()
+	if g.m == nil {
+		g.m = make(map[string]*call)
+	}
+	if c, ok := g.m[key]; ok {
+		c.dups++
+		g.mu.Unlock()
+		c.wg.Wait()
+		return c.val, c.err, true
+	}
+	c := new(call)
+	c.wg.Add(1)
+	g.m[key] = c
+	g.mu.Unlock()
+
+	g.doCall(c, key, fn)
+	return c.val, c.err, c.dups > 0
+}
+
+func (g *Group) DoChan(key string, fn func() (interface{}, error)) <-chan Result {
+	ch := make(chan Result, 1)
+	g.mu.Lock()
+	if g.m == nil {
+		g.m = make(map[string]*call)
+	}
+	if c, ok := g.m[key]; ok {
+		c.dups++
+		c.chans = append(c.chans, ch)
+		g.mu.Unlock()
+		return ch
+	}
+	c := &call{chans: []chan<- Result{ch}}
+	c.wg.Add(1)
+	g.m[key] = c
+	g.mu.Unlock()
+
+	go g.doCall(c, key, fn)
+
+	return ch
+}
+
+func (g *Group) Forget(key string) {
+	g.mu.Lock()
+	if c, ok := g.m[key]; ok {
+		c.forgotten = true
+	}
+	delete(g.m, key)
+	g.mu.Unlock()
+}
+
+```
+
+### 计时器
+
+准确的时间对于任何一个正在运行的应用非常重要，Go语言从实现计时器到现在经历过很多个版本的迭代：
+
+- Go 1.1～Go 1.9：全局使用唯一的四叉堆
+- Go 1.10～Go 1.13：使用全局使用64个四叉堆
+- Go 1.14～至今：每个处理器使用最小四叉堆单独管理计时器
+
+
 
 ### Channel
 
