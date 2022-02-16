@@ -9,6 +9,10 @@ TODO:
 3. CAS原理
 
 4. 设计模式
+5. 数据结构
+6. shell工具
+7. 并发与并行
+8. Git rebase
 
 ## Partation 00
 
