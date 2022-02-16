@@ -1,3 +1,5 @@
+
+
 # Go语言设计与实现
 
 [TOC]
@@ -1988,18 +1990,636 @@ func (g *Group) Forget(key string) {
 
 准确的时间对于任何一个正在运行的应用非常重要，Go语言从实现计时器到现在经历过很多个版本的迭代：
 
-- Go 1.1～Go 1.9：全局使用唯一的四叉堆
-- Go 1.10～Go 1.13：使用全局使用64个四叉堆
-- Go 1.14～至今：每个处理器使用最小四叉堆单独管理计时器
+- Go 1.1～Go 1.9：全局使用唯一的四叉堆。但是为了保证状态一致，仅使用了一把全局锁维护状态。所有的操作都需要获取全局唯一的互斥锁，导致性能问题。
 
+  ![2020-01-25-15799218054781-golang-timer-quadtree](assets/2020-01-25-15799218054781-golang-timer-quadtree.png)
 
+- Go 1.10～Go 1.13：使用全局使用64个四叉堆。通过将四叉堆分片，从而降低锁冲突。此时，频繁的上下文切换是影响计时器性能的首要因素。
+
+  > 当处理器P的数量超过64，就出现了一个bucket中存放了多个Goroutine的Timer。当Timer发生超时的时候，就需要切换P。因此，频繁的切换导致了计时器的性能瓶颈。
+
+  ![2020-01-25-15799218054791-golang-timer-bucket](assets/2020-01-25-15799218054791-golang-timer-bucket.png)
+
+- Go 1.14～至今：每个处理器P使用最小四叉堆单独管理计时器，有效降低了上下文切换。
+
+  ![2020-01-25-15799218054798-golang-p-and-timers](assets/2020-01-25-15799218054798-golang-p-and-timers.png)
+
+计时器的结构如下图所示：
+
+```go
+// 运行时结构
+type timer struct {
+	pp puintptr
+
+	when     int64
+	period   int64
+	f        func(interface{}, uintptr)
+	arg      interface{}
+	seq      uintptr
+	nextwhen int64
+	status   uint32
+}
+
+// 外部结构
+type Timer struct {
+	C <-chan Time
+	r runtimeTimer
+}
+```
+
+触发方式有两种：
+
+1. **调度器调度时会检查处理器中的计时器是否准备就绪**
+2. **系统监控会检查是否有未执行的到期计时器**
 
 ### Channel
 
+数据结构：
+
+```go
+type hchan struct {
+	qcount   uint										// 元素个数
+	dataqsiz uint										// 循环队列的长度
+	buf      unsafe.Pointer					// 缓冲区数据指针
+	elemsize uint16									// 元素大小
+	closed   uint32									// 是否已经关闭
+	elemtype *_type									// 元素类型
+	sendx    uint										// 发送操作处理到的位置
+	recvx    uint										// 接收操作处理到的位置
+	recvq    waitq									// 接收阻塞链表
+	sendq    waitq									// 发送阻塞链表
+
+	lock mutex
+}
+
+type waitq struct {
+	first *sudog
+	last  *sudog
+}
+```
+
+- **发送数据**（`ch <- i`）
+  - 如果`channel.recvq`上存在被挂起的Goroutine时，会直接将数据交给这个Goroutine，并设置为可运行状态
+  - 如果`channel.buf`有剩余空间，会直接将数据放在缓冲区中
+  - 如果`channel.buf`没有剩余空间时，会将当前Goroutine放在`channel.sendq`上，并挂起
+
+- **接收数据**（`i <- ch`）
+  - 如果channel为空，会将当前Goroutine放在`channel.recvq`上，并挂起
+  - 如果channel已经关闭并且缓冲区没有任何数据，会直接返回
+  - 如果`channel.sendq`上存在被挂起的Goroutine时，会直接将数据交给当前的Recv Goroutine，并将Send Goroutine设置为可运行状态
+  - 如果`channel.buf`中存在数据，会直接读取数据
+  - 如果`channel.buf`中没有数据，会将当前Goroutine放在`channel.recvq`上，并挂起
+
+- **关闭Channel**
+  - 将`channel.sendq`和`channel.recvq`中的数据加入到channel的全局队列中
+  - 唤醒`channel.sendq`和`channel.recvq`上所有的Goroutine
+
 ### 调度器
 
-### 轮询器
+#### 发展历程：
+
+- 单线程调度器：0.x
+
+  - 单线程
+  - G-M模型
+
+- 多线程调度器：1.0
+
+  - 多线程
+  - G-M模型
+
+- **任务窃取调度器**：1.1
+
+  - 引入处理器P，构成如今的**G-M-P模型**
+
+  - 在处理器P的基础上实现了基于**工作窃取**的调度器
+
+    > 当前的P运行队列中没有Goroutine时，会从其他P上窃取一些Goroutinelai执行。
+
+- **抢占式调度器**：1.2～至今
+
+  - 基于协作的抢占式调度器：1.2～1.13
+    - 通过编译器在函数调用时插入**抢占检查**指令，从而实现基于协作的抢占式调度
+  - 基于信号的抢占式调度器：1.14～至今
+    - 实现**基于信号的真抢占式调度**
+    - **垃圾回收在扫描栈时会触发抢占调度**
+
+  引入抢占式调度主要是为了解决以下两个问题：
+
+  1. 在某些情况下（比如一个用于复杂计算的for循环），Goroutine不会让出线程，导致饥饿问题
+  2. 垃圾回收时间过长会导致整个程序无法工作
+
+#### GMP
+
+![2020-02-05-15808864354595-golang-scheduler](assets/2020-02-05-15808864354595-golang-scheduler.png)
+
+- G：Goroutine。表示一个待执行的任务
+
+  ```go
+  type g struct {
+  	stack       stack		// 协程栈
+  	stackguard0 uintptr	// 抢占式调度使用
+    
+    preempt       bool // 抢占信号
+  	preemptStop   bool // 抢占时将状态修改成 `_Gpreempted`
+  	preemptShrink bool // 在同步安全点收缩栈
+    
+    _panic       *_panic // 最内侧的 panic 结构体
+  	_defer       *_defer // 最内侧的延迟函数结构体
+    
+  	m              *m				// 系统线程
+  	sched          gobuf		// 存储调度相关的数据
+  	atomicstatus   uint32		// 状态
+  	goid           int64		// 协程ID
+  	...  
+  }
+  
+  type gobuf struct {
+  	sp   uintptr					// sp寄存器（协程栈指针）
+  	pc   uintptr					// 程序计数器
+  	g    guintptr					// goroutine
+  	ret  sys.Uintreg			// 系统调用的返回值
+  	...
+  }
+  ```
+
+  Goroutine有3种常见的状态：
+
+  - **等待中**：正在等待满足某些条件。包括`_Gwaiting`、`_Gsyscall` 和 `_Gpreempted`几个状态
+  - **可运行**：已准备就绪，等待运行。包括`_Grunnable`
+  - **运行中**：运行中。包括：`_Grunning`
+
+- M：系统线程。由操作系统调度和管理
+
+  ![2020-02-05-15808864354634-scheduler-m-and-thread](assets/2020-02-05-15808864354634-scheduler-m-and-thread.png)
+
+  默认情况下，M的数量等于CPU的数量。可以通过`runtime.GOMAXPROCS`查询和调整M的数量。实现结构如下：
+
+  ```go
+  type m struct {
+  	p             puintptr		// 正在运行代码的处理器
+  	nextp         puintptr		// 暂存的处理器
+  	oldp          puintptr		// 执行系统调用之前使用线程的处理器
+  	
+  	g0   *g			// 调度器goroutine
+  	curg *g			// 当前线程上正在运行的用户goroutine
+  	...
+  }
+  ```
+
+- P：处理器。可以被看做运行在线程上的本地调度器
+
+  通过处理器P的调度，每一个内核线程都能够执行多个Goroutine，它能在Goroutine进行一些I/O操作时及时让出计算资源，提高线程的利用率。处理器数量一定会等于`GOMAXPROCS`，这些处理器会绑定到不同的内核线程上。
+
+  ```go
+  type p struct {
+  	m           muintptr			// 内核线程M
+  
+  	runqhead uint32						// 以下3个字段表示运行队列。真实情况是大小为256的环形队列
+  	runqtail uint32						
+  	runq     [256]guintptr		
+  	runnext guintptr					// 下一个需要执行的goroutine
+    
+    Lock;
+  
+  	uint32	status;
+  	P*	link;
+  	uint32	tick;
+  	M*	m;
+  	MCache*	mcache;
+  	...
+  }
+  ```
+
+#### 抢占式调度（协作）
+
+基于协作的抢占式调度的工作原理是：
+
+1. 编译器会在调用函数前插入`runtime.morestack`
+2. Go语言运行时会在**垃圾回收**暂停程序、**系统监控**发现 Goroutine 运行超过10ms时发出抢占请求，即主动`set g.stackguard0=StackPreempt`。 
+3. 当发生函数调用时，编译器插入的`runtime.morestack`会调用`runtime.newstack`
+4. 在`runtime.newstack`中，会检测当前goroutine的`stackguard0`字段。如果`stackguard0=StackPreempt`，就会主动让出当前线程，从而触发抢占
+
+#### 抢占式调度（信号）
+
+基于信号的抢占式调度的原理是：
+
+1. 程序启动时，注册**SIGURG**信号处理函数
+2. 在**垃圾回收**时，调度器会挂起当前Goroutine，并标记为可抢占。随后调用`runtime.preempyM`触发真正的抢占操作。
+3. `runtime.preempyM`会向线程（M）发送**SIGURG**信号
+4. 线程捕捉到**SIGURG**信号后，会陷入软中断，并执行事先注册好的信号处理函数
+5. 在信号处理函数中，会主动**保存并修改当前Goroutine的SP、PC寄存器**
+6. **修改寄存器后，整个线程的执行流回到调度器上**
+7. 调度器会主动修改当前Goroutine的状态至Pending，并选择一个新的Goroutine执行
+
+#### Goroutine创建
+
+创建Goroutine分为3个步骤：
+
+- **初始化G结构体**
+
+  获取G结构体有3种方式：
+
+  1. 从当前处理器的`gFree`列表中获取
+  2. 从调度器的`gFree`列表中获取
+  3. 新创建一个G结构。需要注意的是：
+     - 新创建的Goroutine的栈大小是2KB
+     - 新创建的Goroutine会放到调度器全局队列中，优先被各个调度器调度
+
+  初始化方式如下图所示：
+
+  ![golang-newproc-get-goroutine](assets/golang-newproc-get-goroutine.png)
+
+- **将G结构体添加至运行队列中**
+
+  1. 如果处理器本地运行队列还有空间时，就将Goroutine添加至**处理器本地队列**
+  2. 如果处理器本地运行队列没有空间时，就将Goroutine添加至**调度器全局队列**
+
+- **设置G结构体的调度信息**
+
+  1. `set g.gobuf.pc`：存储程序接下来运行的位置
+
+  2. `set g.gobuf.sp`：存储`runtime.goexit`函数的运行位置
+
+     > 为什么要在sp（栈指针）中存储这个函数的运行地址呢？
+     >
+     > 在goroutine执行完成后，会通过一些汇编的特殊操作调用这个函数为goroutine收尾。该函数会将Goroutine转换为 `_Gdead`状态、清理其中的字段、移除Goroutine和线程的关联并重新加入处理器的 Goroutine 空闲列表`gFree`。完成上述工作后，会进入一轮新的调度
+
+#### Goroutine调度
+
+创建完成后，便进入调度流程。调度的Goroutine来源于3个地方：
+
+1. 处理器会优先挑选**调度器全局队列**中的Goroutine
+2. 随后会选择**处理器局部队列**中的Goroutine
+3. 尝试从**其他处理器局部队列**中窃取待运行的Goroutine
+
+挑选完成之后，待运行的Goroutine便会开始在线程上执行。执行期间，可能会因为各种条件导致执行流被抢占，但是最终都是会顺利执行完成的。在执行完成之后，会使用`runtime.goexit`为已完成的Goroutine“收尸“。主要包含以下几个步骤：
+
+1. 修改Goroutine状态为`_Gdead`
+2. 清理状态字段
+3. 移除Goroutine与M、P的关联关系
+4. 将清理完成的Goroutine放到处理器P的空闲列表`_gFree`中，等待重用
+5. 调用`runtime.schedule`触发新一轮的调度
+
+在P执行期间，整个**Goroutine的调度是循环的**，如下图所示：
+
+![2020-02-05-15808864354669-golang-scheduler-loop](assets/2020-02-05-15808864354669-golang-scheduler-loop.png)
+
+#### 触发调度的条件
+
+以下情况将触发Goroutine调度：
+
+- **主动挂起**
+
+  当等待Channel读写时，可能会因为Channel空间不足主动挂起。挂起时，会将Goroutine的状态从`_Grunning`切换至`_Gwaiting`，并移除与M、P的关联，随后便触发重新调度；恢复时，会将状态从`_Grunning`切换至`_Grunnable`，并加入到某个P的本地队列中，等待被调度。
+
+- **系统调用**
+
+  **Go语言封装了操作系统提供的所有系统调用**，在陷入系统调用前后，都会做一些特殊的处理。如下图所示：
+
+  ![2020-02-05-15808864354688-golang-syscall-and-rawsyscall](assets/2020-02-05-15808864354688-golang-syscall-and-rawsyscall.png)
+
+  对于不同类型的系统调用的处理方式是不同的：
+
+  1. **阻塞型**：陷入系统调用前，保存当前Goroutine的上下文，切换状态，并触发重新调度；在系统调用完成后，修改状态，进入等待被调度的状态
+  2. **非阻塞型**：陷入系统调用时，不会触发抢占；从系统调用返回时，会触发抢占
+
+- **协作式调度**
+
+  在编译期间，会为每个函数调用插入一个Filter。在Filter中会检查当前Goroutine是否可以被抢占，如果可以的话，当前Goroutine就会主动让出处理权，从而进入新一轮的调度。
+
+- **系统监控**
+
+  TODO...
+
+### I/O轮询器
+
+主要利用了操作系统提供的I/O多路复用模型来提升I/O设备的利用率以及程序的性能。Go语言根据不同的系统，封装了不同的系统调用：
+
+![2020-02-09-15812482347853-netpoll-modules](assets/2020-02-09-15812482347853-netpoll-modules.png)
+
+从而对外提供了一组通用的IO接口：
+
+```go
+// 初始化网络轮询器
+func netpollinit()
+
+// 监听文件描述符上的边缘触发事件，创建事件并加入监听
+func netpollopen(fd uintptr, pd *pollDesc) int32
+
+// 轮询网络并返回一组已经准备就绪的 Goroutine，传入的参数会决定它的行为:
+// <0: 无限期等待文件描述符就绪  
+// =0: 非阻塞地轮询网络
+// >0: 阻塞特定时间轮询网络。有就绪立刻返回
+func netpoll(delta int64) gList
+
+// 唤醒网络轮询器，例如：计时器向前修改时间时会通过该函数中断网络轮询器
+func netpollBreak()
+
+// 判断文件描述符是否被轮询器使用
+func netpollIsPollDescriptor(fd uintptr) bool
+```
+
+**重要**：I/O轮询器并不是由运行时中的某一个线程独立运行的，运行时的调度器和系统调用都会通过`runtime.netpoll`与网络轮询器交换消息，获取待执行的Goroutine列表，并将待执行的Goroutine加入运行队列等待处理。
 
 ### 系统监控
 
+Go语言的系统监控在内部启动了一个不会终止的循环，在循环的内部会执行以下操作：
+
+> **系统监控通过一个M执行，这个M不会持有P，就相当于是一个后台线程**。
+
+- **死锁检查**
+
+  查询正常运行的系统线程的数量，可能存在以下2种情况：
+
+  1. 大于0：当前系统不存在死锁
+  2. 等于0：当前系统可能存在死锁，需要做进一步的检查
+
+- **轮询I/O**
+
+  轮询I/O，检查是否存在可以执行的Goroutine。存在的话，将所有处于就绪状态的Goroutine放在调度器全局队列中，等待被P处理
+
+- **抢占处理器**
+
+  遍历处于运行期的处理器P，执行以下两种抢占逻辑：
+
+  1. 当处理器处于`_Grunning`或者`_Gyscall`状态时，并且距离上一次调度已经超过10ms。触发抢占
+  2. 当处理器处于`_Gsyscall`状态时，并且处理器的运行队列不为空或者不存在空闲处理器时。触发抢占
+
+- **垃圾回收**
+
+  根据一定的条件，判断是否需要触发垃圾回收。如果需要触发垃圾回收，我们会将用于垃圾回收的Goroutine加入全局队列，让调度器选择合适的处理器去执行。
+
+- **处理计时器**
+
+  重新计算当前时间和下一个计时器需要触发的时间，通知系统监控被唤醒并重置休眠的间隔
+
 ## 内存管理
+
+### 堆内存管理
+
+#### 概述
+
+堆内存中的对象由内存分配器分配并由垃圾收集器回收。Go程序的**堆内存布局**如下图所示：
+
+![2020-02-29-15829868066479-go-memory-layout](assets/2020-02-29-15829868066479-go-memory-layout.png)
+
+主要分为以下几个组件：
+
+- **内存管理单元**：内存管理的基本单元
+
+- **线程缓存**：负责微、小对象的内存分配；分配时，无须使用互斥锁保护
+- **中心缓存**：当线程缓存空间不足时，使用中心缓存作为补充；分配时，需要使用互斥锁保护
+- **页堆**：负责32KB以上的大内存分配
+
+Go语言采用的**分级分配**的方式管理堆内存。运行时，根据对象的大小将对象分为以下几种：
+
+|  类别  |     大小      |
+| :----: | :-----------: |
+| 微对象 |  `(0, 16B)`   |
+| 小对象 | `[16B, 32KB]` |
+| 大对象 | `(32KB, +∞)`  |
+
+不同类型的对象采用不同的分配器：
+
+- **微对象**：先使用微型分配器，再依次尝试线程缓存、中心缓存和堆分配内存；
+
+  > 微分配器可以将多个较小的内存分配请求合入同一个内存块中，只有当内存块中的所有对象都需要被回收时，整片内存才可能被回收
+
+  ![2020-02-29-15829868066543-tiny-allocator](assets/2020-02-29-15829868066543-tiny-allocator.png)
+
+- **小对象**：依次尝试使用线程缓存、中心缓存和堆分配内存；
+
+  > 即将内存分割成多个链表，每个链表中的内存块大小相同，申请内存时先找到满足条件的链表，再从链表中选择合适的内存块如下图所示：
+
+  ![2020-02-29-15829868066452-segregated-list](assets/2020-02-29-15829868066452-segregated-list.png)
+
+- **大对象**：直接在堆上分配内存；
+
+  ![2020-02-29-15829868066468-heap-after-go-1-11](assets/2020-02-29-15829868066468-heap-after-go-1-11.png)
+
+#### 内存管理单元
+
+`runtime.mspan`是内存管理的基本单位，声明如下所示：
+
+```go
+type mspan struct {
+	next *mspan
+	prev *mspan
+	...
+	startAddr uintptr // 起始地址
+	npages    uintptr // 页数
+	freeindex uintptr
+
+	allocBits  *gcBits
+	gcmarkBits *gcBits
+	allocCache uint64
+  
+  spanclass   spanClass		// 对象跨度
+}
+```
+
+每个`runtime.mspan`都会管理`npages`个大小为8KB的页，如下图所示：
+
+![2020-02-29-15829868066492-mspan-and-pages](assets/2020-02-29-15829868066492-mspan-and-pages.png)
+
+**每个`runtime.mspan`会管理一种跨度的对象链表**，且对象跨度种类如下图所示：
+
+> 下表展示了对象大小从8B到32KB，总共67种跨度类的大小、存储的对象数以及浪费的内存空间。
+>
+> 0表示大于32KB的对象。
+
+| class | bytes/obj | bytes/span | objects | tail waste | max waste |
+| :---: | --------: | ---------: | ------: | :--------: | :-------: |
+|   1   |         8 |       8192 |    1024 |     0      |  87.50%   |
+|   2   |        16 |       8192 |     512 |     0      |  43.75%   |
+|   3   |        24 |       8192 |     341 |     0      |  29.24%   |
+|   4   |        32 |       8192 |     256 |     0      |  46.88%   |
+|   5   |        48 |       8192 |     170 |     32     |  31.52%   |
+|   6   |        64 |       8192 |     128 |     0      |  23.44%   |
+|   7   |        80 |       8192 |     102 |     32     |  19.07%   |
+|   …   |         … |          … |       … |     …      |     …     |
+|  67   |     32768 |      32768 |       1 |     0      |  12.50%   |
+
+`runtime.mspan`的对象管理如下图所示：
+
+![2020-02-29-15829868066499-mspan-and-objects](assets/2020-02-29-15829868066499-mspan-and-objects.png)
+
+从线程缓存的角度看，`runtime.mspan`的管理如下图所示：
+
+![2020-02-29-15829868066485-mspan-and-linked-list](assets/2020-02-29-15829868066485-mspan-and-linked-list.png)
+
+#### 线程缓存
+
+`runtime.mcache`是线程缓存，与线程M上的处理器一一绑定，主要用来缓存用户程序申请的微小对象。每一个线程缓存都持有68 * 2个`runtime.mspan`（**持有2组完整的对象跨度链表**），如下图所示：
+
+![2020-02-29-15829868066512-mcache-and-mspans](assets/2020-02-29-15829868066512-mcache-and-mspans.png)
+
+注意：线程缓存在初始化时，是不包含`runtime.mspan`的。只有当用户程序申请内存时，才会从上一级组件中获取`runtime.mspan`。
+
+#### 中心缓存
+
+**中心缓存存储在页堆中**。与线程缓存类似，但是在使用时需要注意以下几点：
+
+- 访问中心缓存需要加锁
+- 中心缓存空间不足时，会自动扩容
+
+#### 页堆
+
+页堆是一个全局变量，有3个非常重要的功能：
+
+- 管理全局的**中心缓存列表**
+
+  页堆中包含一个长度为136的 `runtime.mcentral` 数组，其中68个为跨度类需要 `scan` 的中心缓存，另外的68个是`noscan`的中心缓存
+
+  ![2020-02-29-15829868066525-mheap-and-mcentrals](assets/2020-02-29-15829868066525-mheap-and-mcentrals.png)
+
+- 管理**操作系统堆区内存**
+
+  每个Heap Arena会管理64MB的内存；整个堆区最多可以管理256TB的内存。
+
+  ![2020-02-29-15829868066531-mheap-and-memories](assets/2020-02-29-15829868066531-mheap-and-memories.png)
+
+- 负责**分配`runtime.mspan`结构**
+
+  ```go
+  func (h *mheap) alloc(npages uintptr, spanclass spanClass, needzero bool) *mspan {
+  	var s *mspan
+  	systemstack(func() {
+  		if h.sweepdone == 0 {
+  			h.reclaim(npages)
+  		}
+  		s = h.allocSpan(npages, false, spanclass, &memstats.heap_inuse)
+  	})
+  	...
+  	return s
+  }
+  ```
+
+### 栈内存管理
+
+**栈区的内存一般由编译器自动分配和释放**，其中存储着函数的入参以及局部变量，这些参数会随着函数的创建而创建，函数的返回而消亡，一般不会在程序中长期存在。**Go语言的汇编代码使用BP、SP两个栈寄存器分别管理栈的基址指针和栈顶的地址**，如下图所示：
+
+PS：**这张图画反了**！！！！栈是从上往下增长；堆是从下往上增长！！！
+
+![2020-03-23-15849514795843-stack-registers](assets/2020-03-23-15849514795843-stack-registers.png)
+
+注意：Linux默认的线程栈大小是8MB，超过限制后会溢出，无法自动扩容；Go语言协程栈的默认大小是2KB，超过限制后可自动扩容。
+
+#### 逃逸分析
+
+Go语言在编译期间，使用**逃逸分析**决定哪些变量应该在栈上分配，哪些变量应该在堆上分配，主要遵循以下两个条件：
+
+- 指向栈对象的指针不能存在于堆中
+
+  > 如图中绿色指针所示，一旦栈中的变量被回收。将导致堆中的指针空悬，从而在GC时出现异常。
+
+- 指向栈对象的指针不能在栈对象回收后存活
+
+  > 当红色的Value被回收是，黄色Pointer变成了空悬指针。相当于返回函数中的变量地址，如果是C++，会在后续的访问中出现Segment Fault；如果是Golang，会将变量分配到堆上
+
+如下图所示：
+
+![2020-03-23-15849514795864-escape-analysis-and-key-invariants](assets/2020-03-23-15849514795864-escape-analysis-and-key-invariants.png)
+
+#### 栈空间管理
+
+Go语言在V1.3之前使用分段栈，V1.4之后使用连续栈。
+
+- **分段栈**：当栈空间不足时，会重新分配一个新的栈空间，并使用双向链表将多个栈空间链接起来。如下图所示：
+
+  > 分段栈在运行期可能频繁的触发扩容、缩容。扩缩容是一个高成本的开销，会严重影响性能
+
+  ![2020-03-23-15849514795874-segmented-stacks](assets/2020-03-23-15849514795874-segmented-stacks.png)
+
+- **连续栈**：每当程序的栈空间不足时，就会初始化一片更大的栈空间并将原栈中的所有值都迁移到新栈中。如下图所示：
+
+  > 在值迁移的过程中，需要额外注意指针的迁移。当栈指针指向的是栈空间，并且没有发生逃逸时，需要更新栈指针的指向，将其变更为新栈中的栈空间。
+  >
+  > 在GC期间，如果发现栈空间仅使用了1/4，就会发生一次缩容；缩容的最小长度是2KB
+
+  ![2020-03-23-15849514795883-continuous-stacks](assets/2020-03-23-15849514795883-continuous-stacks.png)
+
+  运行时，使用全局的`runtime.stackpool`和线程缓存中的空闲链表分配 32KB 以下的栈内存；使用全局的`runtime.stackLarge`和堆内存分配 32KB 以上的栈内存。**这两个结构都和`runtime.mspan`有关，我们可以认为Go语言的栈空间是分配在堆上的**。如下图所示：
+
+  ![2020-03-23-15849514795892-stack-memory](assets/2020-03-23-15849514795892-stack-memory.png)
+
+### 垃圾收集器
+
+目前常见的垃圾回收算法有两种：
+
+#### 标记清除
+
+跟踪式垃圾回收器，其执行过程主要分为以下两个步骤：
+
+1. **标记**阶段：从根对象出发，查找并标记堆中所有存活的对象
+
+   ![2020-03-16-15843705141797-mark-sweep-mark-phase](assets/2020-03-16-15843705141797-mark-sweep-mark-phase.png)
+
+2. **清除**阶段：遍历堆中的所有对象，回收未被标记的垃圾对象并将回收的内存加入空闲链表
+
+   > 用户程序在清除阶段无法执行，将会带来长时间的STW（"Stop The World"）
+
+   ![2020-03-16-15843705141803-mark-sweep-sweep-phase](assets/2020-03-16-15843705141803-mark-sweep-sweep-phase.png)
+
+#### 三色抽象（标准）
+
+三色标记算法主要是为了解决标记清除中，长时间STW的问题。三色标记算法将程序中的对象分成白色、黑色和灰色三类：
+
+- **白色对象**：潜在的垃圾，其内存可能会被垃圾收集器回收；
+- **黑色对象**：活跃的对象，包括不存在任何引用外部指针的对象以及从根对象可达的对象；
+- **灰色对象**：活跃的对象，因为存在指向白色对象的外部指针，垃圾收集器会扫描这些对象的子对象；
+
+在垃圾收集器开始工作时，程序中不存在任何的黑色对象。**垃圾收集的根对象会被标记成灰色，垃圾收集器只会从灰色对象集合中取出对象开始扫描，当灰色集合中不存在任何对象时，标记阶段就会结束**。整个过程如下图所示：
+
+<img src="assets/2020-03-16-15843705141814-tri-color-mark-sweep.png" alt="2020-03-16-15843705141814-tri-color-mark-sweep" style="zoom:50%;" />
+
+运行的最终状态如下所示，D对象将被回收：
+
+<img src="assets/2020-03-16-15843705141821-tri-color-mark-sweep-after-mark-phase.png" alt="2020-03-16-15843705141821-tri-color-mark-sweep-after-mark-phase" style="zoom:50%;" />
+
+上述的这个过程是无法并发执行，依旧会出现STW现象。例如在运行期间，并发的修改指针A指向对象D，但是由于整个堆中已经不存在灰色的对象了，从而对象D依旧会被回收，导致指针A出现空悬，影响内存安全。如下图所示：
+
+<img src="assets/2020-03-16-15843705141828-tri-color-mark-sweep-and-mutator.png" alt="2020-03-16-15843705141828-tri-color-mark-sweep-and-mutator" style="zoom:50%;" />
+
+**为了并发的、增量的标记对象，需要内存屏障技术**。想要在并发或者增量的标记算法中保证正确性，我们需要达成以下两种三色不变性中的一种：
+
+> 内存屏障技术是一种屏障指令，它可以让 CPU 或者编译器在执行内存相关操作时遵循特定的约束，目前多数的现代处理器都会乱序执行指令以最大化性能，但是该技术能够保证内存操作的顺序性，在内存屏障前执行的操作一定会先于内存屏障后执行的操作。
+
+- 强三色不变性：黑色对象不会指向白色对象，只会指向灰色对象或者黑色对象
+- 弱三色不变性：黑色对象指向的白色对象必须包含一条从灰色对象经由多个白色对象的可达路径
+
+![2020-03-16-15843705141834-strong-weak-tricolor-invariant](assets/2020-03-16-15843705141834-strong-weak-tricolor-invariant.png)
+
+垃圾收集中的内存屏障技术更像是一个钩子方法，它是在用户程序读取对象、创建新对象以及更新对象指针时执行的一段代码，根据操作类型不同，主要分为：
+
+- **读屏障**：因为读屏障需要在读操作中加入代码片段，对用户程序的性能影响很大，所以肯定不会用。**常用写屏障来保证三色不变性**
+
+- **插入写屏障**：
+
+  ```go
+  // 当出现*slot = ptr这样的表达式时。如果ptr为白色，会将ptr标记为灰色
+  writePointer(slot, ptr):
+      shade(ptr)
+      *slot = ptr
+  ```
+
+  插入写屏障主要将有存活可能的对象都标记成灰色以满足强三色不变性。通过这样的方式，保证在标记与用户程序的并发运行期间，白色的对象会被正确的标记。但是这种方法存在明显的缺点：**因为栈上的对象在垃圾收集中也会被认为是根对象，因此必须为栈上的对象增加写屏障或者在标记阶段完成重新对栈上的对象进行扫描。**
+
+  ![2020-03-16-15843705141840-dijkstra-insert-write-barrier](assets/2020-03-16-15843705141840-dijkstra-insert-write-barrier.png)
+
+- **删除写屏障**
+
+  ```go
+  writePointer(slot, ptr)
+      shade(*slot)
+      *slot = ptr
+  ```
+
+  
+
+
+
+
+
+为了解决原始标记清除算法带来的长时间STW，Go语言采用三色标记算法的变种来缩短STW的时间。
