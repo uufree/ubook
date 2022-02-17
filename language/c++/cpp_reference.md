@@ -1067,7 +1067,7 @@ multiset、set在插入时是自动排序的，且自动排序的优点使得查
 
 ### fstream、iostream、stringstream
 
-![](./cpp_reference.assets/1-1.png)
+![](./assets/1-1.png)
 
 - `explicit ifstream (const string& filename, ios_base::openmode mode = ios_base::in)`
   - mode：文件打来的模式
@@ -2009,7 +2009,7 @@ multiset、set在插入时是自动排序的，且自动排序的优点使得查
 
 ### exception
 
-![](./cpp_reference.assets/2-1.png)
+![](./assets/2-1.png)
 
 - `class exception`
 ```c++
