@@ -50,7 +50,7 @@
 ## 第4章 表达式
 
 - 显示类型转换
-  - **static_case**：类似于C语言的强制转换，不保证安全性
+  - **static_cast**：类似于C语言的强制转换，不保证安全性
   - **const_cast**：去除修饰变量的const属性
   - **dynamic_cast**：在继承体系中之执行安全的向下转型。将父指针或者引用根据virtual table中RTTI信息，安全的转换为子类指针或者引用，转化失败返回NULL
   - **reinterpret_cast**：运行任意类型的转换，指针->整数等等，不安全，欺骗编译器

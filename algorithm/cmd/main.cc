@@ -1,8 +1,12 @@
 #include <iostream>
+#include "test.h"
 
-using namespace std;
+extern int test();
 
 int main() {
-  std::cout << "hello world" << std::endl;
+  int num = 10;
+  int nums[10];
+  int *p = &num;
+  std::cout << sizeof(p) << std::endl;
   return 0;
 }
