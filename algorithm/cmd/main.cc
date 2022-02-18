@@ -1,11 +1,14 @@
 #include <iostream>
+#include <vector>
+#include <memory>
 #include "test.h"
+#include <initializer_list>
 
 extern int test();
 
-class a {
+class Base {
  public:
-  virtual ~a() {
+  virtual ~Base() {
     std::cout << "~a" << std::endl;
   }
   virtual void print() {
@@ -15,9 +18,9 @@ class a {
   int num;
 };
 
-class b : public a {
+class Derived final : public Base {
  public:
-  virtual ~b() {
+  virtual ~Derived() {
     std::cout << "~b" << std::endl;
   }
   void print() override {
@@ -25,24 +28,27 @@ class b : public a {
   }
 };
 
-class q {
+class DD;
+class Based {
  public:
-  virtual ~q() {} ;
-  virtual void print() = 0;
+  virtual ~Based();
+  virtual void ff() {
+    std::cout << "ff" << std::endl;
+  };
+ private:
+  DD* dd;
 };
 
-class w : public q {
- public:
-  ~w() {};
-  void print() override{
-    std::cout << "w" << std::endl;
+class DD {};
+
+int test(std::initializer_list<int> args) {
+  std::cout << args.size() << std::endl;
+  for (auto iter=args.begin(); iter!=args.end(); ++iter) {
+    std::cout << *iter << std::endl;
   }
-};
+  return 0;
+}
 
 int main() {
-  int a = 10;
-  float b = dynamic_cast;
-  std::cout << sizeof(q) << std::endl;
-  std::cout << sizeof(w) << std::endl;
   return 0;
 }

@@ -91,7 +91,7 @@
   class Sales {
   public:
   	void get();
-      void get(int x, int y);
+     void get(int x, int y);
   }
   ```
 
