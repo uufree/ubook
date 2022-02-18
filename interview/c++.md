@@ -194,13 +194,84 @@ struct B
 
 ### friend
 
-友元函数和友元类能访问私有成员，破坏了类的完整性。
+友元函数和友元类能访问私有成员，破坏了类的完整性。示例如下：
+
+```c++
+// 友元函数
+class Sales {
+  friend int readBooks(const Sales& sales);
+ public:
+  Sales() = default;
+  Sales(int books) : books_(books) {};
+  ~Sales(){};
+
+  int books() const {return books_;};
+
+ private:
+  int books_;
+};
+
+int readBooks(const Sales& sales) {
+  return sales.books_;
+}
+
+// 友元类
+class Sales {
+  friend class Markets;
+ public:
+  Sales() = default;
+  Sales(int books) : books_(books) {};
+  ~Sales(){};
+
+  int books() const {return books_;};
+
+ private:
+  int books_;
+};
+
+class Markets {
+ public:
+  Markets() = default;
+  Markets(const Sales& sales) : sales_(sales) {}
+  ~Markets(){};
+
+  int books() {return sales_.books_;}
+
+ private:
+  Sales sales_;
+};
+```
 
 ### decltype
 
+尾置返回类型，主要用于返回类型不确定的场景：
+
+```c++
+// 尾置返回允许我们在参数列表之后声明返回类型
+template <typename It>
+auto fcn(It beg, It end) -> decltype(*beg)
+{
+    // 处理序列
+    return *beg;    // 返回序列中一个元素的引用
+}
+// 为了使用模板参数成员，必须用 typename
+template <typename It>
+auto fcn2(It beg, It end) -> typename remove_reference<decltype(*beg)>::type
+{
+    // 处理序列
+    return *beg;    // 返回序列中一个元素的拷贝
+}
+```
+
 ### &、&&
 
+
+
 ### initializer_list
+
+
+
+## STL
 
 
 
@@ -208,7 +279,7 @@ struct B
 
 
 
-## STL
+## 模板与泛型
 
 
 
