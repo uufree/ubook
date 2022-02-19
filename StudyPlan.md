@@ -5,15 +5,7 @@
 TODO:
 
 1. Redis、Mysql同步
-2. IO多路复用
-3. CAS原理
-
-4. 设计模式
-5. 数据结构
-6. shell工具
-7. 并发与并行
-8. Git rebase
-9. rpc怎么实现
+2. docker、k8s
 
 ## Partation 00
 

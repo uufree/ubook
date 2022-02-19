@@ -1,4 +1,4 @@
-# C++
+# C++总结
 
 [TOC]
 
@@ -336,6 +336,109 @@ int main() {
   typeid(*bp) == typeid(*dp)	// 重载==运算符
   typeid(*bp) ！= typeid(*dp)	// 重载!=运算符
   ```
+
+### 动态链接
+
+接口如下：
+
+```c++
+#include <dlfcn.h>
+
+// 以指定模式打开动态库，模式如下：
+// RTLD_LAZY：在真正的函数调用时再解析符号 
+// RTLD_NOW：在dlopen时解析符号
+void *dlopen(const char *filename, int flag);
+
+// 返回dl*操作时出现的错误
+char *dlerror(void);
+
+// 通过dlopen handler和符号，获取动态库中的函数或者变量名
+void *dlsym(void *handle, const char *symbol);
+
+// 卸载打开的库
+int dlclose(void *handle);
+```
+
+使用demo如下：
+
+```c++
+// count.h
+#ifndef _COUNT_H
+#define _COUNT_H
+int count;
+
+int get();
+void inc();
+
+#endif
+
+// count.cc
+#include "count.h"
+
+int get() {
+    return count;
+}
+
+void inc() {
+    count++;
+}
+
+// build
+gcc -fPIC -shared -o count.so count.c
+
+// main.cc
+#include <stdio.h>
+#include <stdlib.h>
+#include <dlfcn.h>
+
+#define NUM 6
+#define LIBPATH ""
+
+typedef void (*inc_func)();
+typedef int (*get_func)();
+
+const static char *exe_name = NULL;
+void usage() {
+    printf("Usage: %s <lib_path>\n", exe_name);
+    exit(1);
+}
+
+int main(int argc, char **argv) {
+    exe_name = argv[0];
+    if (argc < 2)
+        usage();
+    const char *libpath = argv[1];
+    printf("libpath=%s\n", libpath);
+
+    void *handler = dlopen(libpath, RTLD_LAZY);
+    if (handler == NULL) {
+        printf("ERROR:%s:dlopen\n", dlerror());
+        return -1;
+    }
+    inc_func inc = (inc_func) dlsym(handler, "inc");
+    if (inc == NULL) {
+        printf("ERROR:%s:dlsym\n", dlerror());
+        return -1;
+    }
+    get_func get = (get_func) dlsym(handler, "get");
+    if (get == NULL) {
+        printf("ERROR:%s:dlsym\n", dlerror());
+        return -1;
+    }
+
+    for (int i = 0; i < NUM; i++)
+        inc();
+    printf("get() return %d\n", get());
+    dlclose(handler);
+    return 0;
+}  
+
+// build & run
+gcc -o main main.c -ldl
+./main ./count.so  
+```
+
+
 
 ## 内存管理
 
@@ -702,6 +805,4 @@ TODO...
 11. 尽量使用前向声明降低头文件的依赖
 
 12. 覆写virtual函数时，切记加上`override`关键字
-
-## 编译链接
 
