@@ -50,5 +50,13 @@ int test(std::initializer_list<int> args) {
 }
 
 int main() {
+  int* p = new (std::nothrow)int(10);
+  assert(p != nullptr);
+  delete p;
+
+
+  int* array = new(std::nothrow) int[10];
+  assert(array != nullptr);
+  delete [] array;
   return 0;
 }
