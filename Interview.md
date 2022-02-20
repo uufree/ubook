@@ -2,6 +2,10 @@
 
 [TOC]
 
+## project
+
+
+
 ## components
 
 ### mysql
@@ -38,8 +42,116 @@
 
 ### kafka
 
-- kafka怎么保证快的？
-- 怎么做kafka msg的幂等？
+- 为什么要使用kafka？
+
+  异步处理；服务解耦合；请求削峰；提升吞吐量
+
+- kafka有哪些缺点？
+
+  部署需要引入zk，有点麻烦；不支持延时消息；不支持多分区消息有序
+
+- kafka有哪些特点？
+
+  高吞吐（顺序读写文件、消息索引）；高拓展（topic partition、consumer group）；高可靠（通过写磁盘进行持久化、分区副本）
+
+- kafka如何实现高吞吐？
+
+  顺序读写文件；消息索引（在.index文件中存储.log文件的msg offset<->log file position，并将.index文件映射到内存中）；同步消息时采用零拷贝技术
+
+- kafka的高可靠是怎么实现的？
+
+  两个角度：消息会被顺序持久化至磁盘；采用分区副本（主分区读写，从分区只负责同步），使用acks参数控制写入动作
+
+- kafka的高拓展是怎么实现的？
+
+  两个角度：consumer group提升消费能力；多partition提升写入能力
+
+- 讲讲kafka的体系结构
+
+  Broker；Producer；Consumer Group、Consumer；Topic、Partition；
+
+- kafka分区的目的？
+
+  横向拓展消费能力；采用分区副本保证消息的高可靠
+
+- 如何保证kafka消息有序？
+
+  单一partation
+
+- 讲讲kafka的消息一致性。
+
+  从HW和LEO的机制交付来回答。
+
+  - HW（High Water Mark）：ISR（In-Sync Replication）中，Offset最小的位置，相当于木桶的最短板。只有HW以上的消息才能被读取，控制消费者读取数据的位置。
+  - LEO（Log End Offset）：ISR中，Offset最大的位置，相当于木桶的最长板，即主副本Offset。
+
+- 怎么做kafka消息幂等？
+
+  MongoDB中我用了唯一索引，ES不清楚；Mysql可以使用唯一索引；
+
+- kafka在什么情况下会丢消息？
+
+  acks=0时；producer recv&commit，还没来得及处理，就crash了；
+
+- kafka在什么情况下会出现消息重复？
+
+  producer采用auto commit，消费了但没有commit，然后出现了crash
+
+- consumer和consumer group是什么关系？
+
+  consumer属于consumer group，从一个或者多个topic中读消息；每个consumer至少能分到1个partition
+
+- 讲讲consumer group rebalance
+
+  消费者数量或者分区数量发生变化时，controller将分区重新分配给某个consumer的过程
+
+- 讲讲partition rebalance。
+
+  broker的数量发生变化时，为了保证每个broker的吞吐大致平衡，需要手动调整下partition在broker list中分不
+
+- kafka分区数量可以减少吗？
+
+  不行，对于减少的分区中的数据如何处理比较复杂
+
+- 讲讲kafka的分区副本
+
+  主副本负责读写，从副本负责同步数据。引入一些ISR、OSR，HW、LEO这样的概念。需要注意的是，分区副本的数量（包含主副本）不能超过broker
+
+- zk在kafka中有什么作用？
+
+  维护kafka节点状态，包括但不限于：controller选举、broker管理、配置管理等
+
+- consumer长时间没有pull，会有什么问题吗？
+
+  pull中存在心跳，长时间没有心跳，会导致被踢出consumer group，触发rebalance
+
+- 如何减少数据丢失？
+
+  acks=all；在producer中，处理完消息之后，再commit；加入幂等性处理重复的消息；禁止OSR中的副本竞选主副本
+
+- offset有什么作用？
+
+  kafka中的消息是不能修改的，使用offset能描述唯一的消息位置；使用offset和index文件建立索引，加速读取
+
+- 如何修改kafka能接受的最大的消息大小？
+
+  同时修改producer、broker、consumer中的配置项
+
+- 如何估算kafka集群的大小？
+
+  使用Kafka-consumer/producer-pref-test.sh这样的工具，结合消息大小测试下
+
+- 如何调优kafka？
+
+  根绝消息大小、延迟等需求，从broker、topic、consumer、produce以及JVMr这5个角度分开去看
+
+- kafka为什么不支持读写分离？
+
+  避免发生一致性问题
+
+- kafka磁盘容量规划需要考虑哪些因素？
+
+  消息大小、留存时间、是否压缩
 
 ### mongodb
 
