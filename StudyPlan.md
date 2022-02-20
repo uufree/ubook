@@ -6,6 +6,7 @@ TODO:
 
 1. Redis、Mysql同步
 2. docker、k8s
+3. kafka消息幂等
 
 ## Partation 00
 
