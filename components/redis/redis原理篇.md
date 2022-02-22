@@ -226,7 +226,7 @@ AOF持久化是以独立日志的方式记录每次写命令，重启时再重�
    - **CPU**：如果绑定CPU，那么子进程和副进程会竞争CPU调度资源
    - **内存**：
      - Fork过程中，页表拷贝
-     - AOF重写/RDB备份过程中。如果父进程存在大量的写操作，将触发OS COW过程。系统频繁的为副进程分配物理内存，将导致整体吞吐下降。
+     - AOF重写/RDB备份过程中。如果父进程存在大量的写操作，将触发OS COW过程。系统频繁的为子进程分配物理内存，将导致整体吞吐下降。
    - **硬盘**：
      - AOF Rewrite和RDB备份过程都存在大量的硬盘IO
      - AOF写入策略也会占用部分硬盘IO
@@ -296,7 +296,7 @@ Redis从节点使用**psync**命令完成主从数据复制，同步过程分为
    - **repl_backlog_buffer**：用于增量同步，只要从库存在，这个环形Buffer就存在。主从机制下，主库所有的写入命令除了传播给从库外，都会在这个环形Buffer中缓存起来。如果Offset被覆盖，就会触发从库的全量复制。所以尽量将这个Buffer配置的大一些
    - **replication_buffer**：Redis和客户端通信也好、和从库通信也好，都需要申请一个Buffer，用于缓存发送给Socket的数据。replication_buffer就是Redis和从库通信用的Buffer。这个Buffer可以用**client-output-buffer-limit**限制，如果超过，主库会主动断开链接。
 
-   综上，repl_backlog_buffer是一块所有从库C共享的Buffer，**被动响应psync请求**，专门用于增量同步；replication_buffer是每个Client专有的Buffer，**主库主动向从库传递命令**。
+   综上，repl_backlog_buffer是一块所有从库共享的Buffer，**被动响应psync请求**，专门用于增量同步；replication_buffer是每个Client专有的Buffer，**主库主动向从库传递命令**。
 
 3. 什么是复制风暴？
 

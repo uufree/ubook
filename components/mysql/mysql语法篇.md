@@ -21,7 +21,7 @@ SHOW COLLATION;
 
   ```mysql
   # 展示搜索过程使用了那个索引
-  EXPLAIN SELECT * FROM test WHERE id between 1000 and 2000;
+  EXPLAIN SELECT * FROM test WHERE id BETWEEN 1000 AND 2000;
   
   # 强制使用某个索引
   EXPLAIN SELECT * FROM t FORCE INDEX(b) WHERE a=10;
@@ -113,7 +113,7 @@ SET PASSWORD FOR uuchen1 = Password('uuchen1');
 
 # 展示用户权限
 # 以下输出表示用户没有任何权限
-mysql> SHOW GRANTS FOR uuchen1;
+SHOW GRANTS FOR uuchen1;
 +-------------------------------------+
 | Grants for uuchen1@%                |
 +-------------------------------------+
@@ -276,7 +276,7 @@ SELECT id, name, gf FROM persons WHERE id=4;
 - **ORDER BY [ASC | DESC]**：排序条件
   - **ASC**：升序排序
   - **DESC**：降序排序
-- 分组：**GROUP BY**：分组
+- **GROUP BY**：分组
 - **HAVING**：分组过滤
 
 ``` mysql
