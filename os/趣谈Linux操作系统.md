@@ -2,8 +2,6 @@
 
 [TOC]
 
-系统初始化篇章存在部分有用的内容：**权限及系统调用**
-
 ## 概述
 
 <img src="assets/下载.jpeg" alt="下载" style="zoom: 50%;" />

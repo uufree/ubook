@@ -69,11 +69,28 @@ MongoDB是一个**面向文档**的数据库，具有以下特点：
 数据库隔离级别由以下几种：
 
 - Read UnCommitted：事务A可以读取事务B未提交的数据。可能发生：脏读、不可重复读、幻读，很少使用
+
 - Read Committed：事务A只能读取事务B已提交的数据。可能发生：不可重复读、幻读，很少使用
+
 - Repeatable Read：事务A只能在事务B修改并提交数据之后，并且是事务A也提交后，才能读到事务B修改的数据。可能发生幻读
+
 - **Snapshot Isolation**：事务A将看到了一个一致的数据库版本快照，采用MVCC实现。Snapshot ID由最后一次事务的提交产生。
+  
   - Read：在这个快照中，读到的值都是一致的，有效的避免了脏读、幻读、不可重复读的问题
   - Write：仅当没有发生写入冲突时，才能写入成功，否则事务终止
+  
+  Snapshot比RR的隔离级别更高一些，考虑下面这个场景：
+  
+  ```mysql
+  begin;													# 事务A
+  select * from t where id=0;			# 事务A。此时，c=0
+  update t set c=c+1 where id=0;	# 事务B。在事务B中修改后，c=1，并且B已经提交，id=0的行上没有锁
+  update t set c=c+1 where id=0;	# 事务A。此时，c=2
+  commit;													# 事务A
+  ```
+  
+  就是说：**发生写冲突的时候，只要行上没有锁，RR依旧是可以写入成功的；SnapShot在这种场景下无法写入成功。**
+  
 - Serializable：事务串行执行，避免所有问题
 
 在事务并发的条件下，可能出现以下问题：
@@ -290,7 +307,6 @@ MongoDB的复制功能使用**oplog**实现的，操作日志包含了主节点�
 ## Reference
 
 https://mongoing.com/zyd
-
 
 
 
