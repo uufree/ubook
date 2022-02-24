@@ -4,6 +4,8 @@
 #include "test.h"
 #include <initializer_list>
 
+using namespace std;
+
 extern int test();
 
 class Base {
@@ -49,14 +51,30 @@ int test(std::initializer_list<int> args) {
   return 0;
 }
 
+int cal(const std::vector<int>& nums, int k) {
+  int res = 0;
+  int copy = k;
+
+  for (int i=0; i<nums.size();) {
+    if (copy - nums[i] >= 0) {
+      copy -= nums[i];
+      ++i;
+    } else {
+      ++res;
+      copy = k;
+    }
+  }
+
+  if (copy < k) {
+    ++res;
+  }
+
+  return res;
+}
+
 int main() {
-  int* p = new (std::nothrow)int(10);
-  assert(p != nullptr);
-  delete p;
-
-
-  int* array = new(std::nothrow) int[10];
-  assert(array != nullptr);
-  delete [] array;
+  vector<int> nums = {3,2,2,4,1,4};
+  int k = 6;
+  std::cout << cal(nums, k) << std::endl;
   return 0;
 }
