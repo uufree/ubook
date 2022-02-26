@@ -2,6 +2,7 @@
 #include <vector>
 #include <memory>
 #include "test.h"
+#include <unistd.h>
 #include <initializer_list>
 
 using namespace std;
@@ -80,7 +81,9 @@ class Test {
 };
 
 int main() {
-  Test t;
+  while (1) {
+    usleep(1000);
+  }
 
   return 0;
 }
