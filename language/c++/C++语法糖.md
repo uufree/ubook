@@ -438,8 +438,6 @@ gcc -o main main.c -ldl
 ./main ./count.so  
 ```
 
-
-
 ## 内存管理
 
 ### malloc、free
@@ -532,80 +530,85 @@ int main() {
 - **noexcept**：将一些关键函数标记为不抛出异常。例如析构函数、拷贝构造函数等
 
 - **override**：显示覆写虚函数
+
 - **explicit**：主要用于修饰构造函数和复制构造函数，可以**有效防止隐式类型转换**。需要注意的是，仅对单个参数的初始化类型生效
+
 - **=default**：强制要求编译器生成默认构造函数
+
+- **mutable**：使用mutable修饰的变量不受const修饰成员函数的影响
+
 - **=delete**：拒接编译器合成拷贝、复制构造函数
 
-```c++
-class Derived final : public Base {
- public:
-  Derived() = default;
-  
- 	explicit Derived(int num) : num_(num) {};
-  
-  Derived(const Derived& d) = delete;
-  Derived(Derived&& d) = delete;
-  Derived& operator=(const Derived& d) = delete;
-  Derived& operator=(Derived&& d) = delete;
-  
-  virtual ~Derived() noexcept {
-    std::cout << "~b" << std::endl;
-  }
-  void print() override {
-    std::cout << "b" << std::endl;
-  }
- private:
- 	int num_;
-};
-```
+  ```c++
+  class Derived final : public Base {
+   public:
+    Derived() = default;
+    
+   	explicit Derived(int num) : num_(num) {};
+    
+    Derived(const Derived& d) = delete;
+    Derived(Derived&& d) = delete;
+    Derived& operator=(const Derived& d) = delete;
+    Derived& operator=(Derived&& d) = delete;
+    
+    virtual ~Derived() noexcept {
+      std::cout << "~b" << std::endl;
+    }
+    void print() override {
+      std::cout << "b" << std::endl;
+    }
+   private:
+   	int num_;
+  };
+  ```
 
 - **friend**：友元函数和友元类能访问私有成员，破坏了类的完整性。示例如下：
 
-```c++
-// 友元函数
-class Sales {
-  friend int readBooks(const Sales& sales);
- public:
-  Sales() = default;
-  Sales(int books) : books_(books) {};
-  ~Sales(){};
-
-  int books() const {return books_;};
-
- private:
-  int books_;
-};
-
-int readBooks(const Sales& sales) {
-  return sales.books_;
-}
-
-// 友元类
-class Sales {
-  friend class Markets;
- public:
-  Sales() = default;
-  Sales(int books) : books_(books) {};
-  ~Sales(){};
-
-  int books() const {return books_;};
-
- private:
-  int books_;
-};
-
-class Markets {
- public:
-  Markets() = default;
-  Markets(const Sales& sales) : sales_(sales) {}
-  ~Markets(){};
-
-  int books() {return sales_.books_;}
-
- private:
-  Sales sales_;
-};
-```
+  ```c++
+  // 友元函数
+  class Sales {
+    friend int readBooks(const Sales& sales);
+   public:
+    Sales() = default;
+    Sales(int books) : books_(books) {};
+    ~Sales(){};
+  
+    int books() const {return books_;};
+  
+   private:
+    int books_;
+  };
+  
+  int readBooks(const Sales& sales) {
+    return sales.books_;
+  }
+  
+  // 友元类
+  class Sales {
+    friend class Markets;
+   public:
+    Sales() = default;
+    Sales(int books) : books_(books) {};
+    ~Sales(){};
+  
+    int books() const {return books_;};
+  
+   private:
+    int books_;
+  };
+  
+  class Markets {
+   public:
+    Markets() = default;
+    Markets(const Sales& sales) : sales_(sales) {}
+    ~Markets(){};
+  
+    int books() {return sales_.books_;}
+  
+   private:
+    Sales sales_;
+  };
+  ```
 
 - **前向声明**：前向声明的类是一个不完全类型，仅可以用**指针或者引用**的方式使用
 

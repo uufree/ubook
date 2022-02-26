@@ -2,12 +2,6 @@
 
 [TOC]
 
-TODO:
-
-1. Redis、Mysql同步
-2. docker、k8s
-3. kafka消息幂等
-
 ## Partation 00
 
 - 时间：**2021.10.01～2021.10.21**

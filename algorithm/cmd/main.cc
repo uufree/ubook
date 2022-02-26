@@ -72,9 +72,15 @@ int cal(const std::vector<int>& nums, int k) {
   return res;
 }
 
+class Test {
+ public:
+  Test() noexcept {
+    throw "except...";
+  }
+};
+
 int main() {
-  vector<int> nums = {3,2,2,4,1,4};
-  int k = 6;
-  std::cout << cal(nums, k) << std::endl;
+  Test t;
+
   return 0;
 }
