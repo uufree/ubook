@@ -195,6 +195,8 @@ WiredTiger采用B-Tree作为索引数据结构，在B-Tree中主要包含3种类
 - Internal Page：仅包含指向其子页的page index指针，不包含集合中的真正数据
 - Leaf Page：包含集合中的真正数据即keys/values和指向父页的home指针
 
+在于非主键索引中，它存放的是：**索引 <-> Document Position**的信息。也就是说，对于MongoDB而言，它无需像Mysql那样回表取数据，而是直接从索引中就能拿到文档资源。
+
 ### 其他
 
 https://mongoing.com/guoyuanwei

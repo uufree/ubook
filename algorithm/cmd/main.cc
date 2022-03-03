@@ -4,6 +4,7 @@
 #include "test.h"
 #include <unistd.h>
 #include <initializer_list>
+#include <string>
 
 using namespace std;
 
@@ -79,11 +80,55 @@ class Test {
     throw "except...";
   }
 };
+class Solution {
+  vector<vector<int>> cache;
+ public:
+  int dp(const string& s1, int i, const string& s2, int j) {
+    if (i == s1.size()) {
+      return 0;
+    }
 
-int main() {
-  while (1) {
-    usleep(1000);
+    if (j == s2.size()) {
+      return 0;
+    }
+
+    if (cache[i][j]) {
+      return cache[i][j];
+    }
+
+    if (s1[i] == s2[j]) {
+      cache[i][j] = 1 + dp(s1, i+1, s2, j+1);
+    } else {
+      cache[i][j] = std::max(dp(s1, i+1, s2, j), dp(s1, i, s2, j+1));
+    }
+
+    return cache[i][j];
   }
 
+  int longestPalindromeSubseq(string s) {
+    if (s.empty()) {
+      return 0;
+    }
+
+    if (s.size() == 1) {
+      return 1;
+    }
+
+    cache.resize(s.size());
+    for (auto& nums : cache) {
+      nums.resize(s.size());
+    }
+
+    string rs = s;
+    std::reverse(rs.begin(), rs.end());
+
+
+    return dp(s, 0, rs, 0);
+  }
+};
+
+int main() {
+  Solution sol;
+  std::cout << sol.longestPalindromeSubseq("bbbab") << std::endl;
   return 0;
 }
