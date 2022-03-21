@@ -80,55 +80,55 @@ class Test {
     throw "except...";
   }
 };
+
 class Solution {
-  vector<vector<int>> cache;
+  int min = INT32_MAX;
+  int res = 0;
+  bool flag = false;
  public:
-  int dp(const string& s1, int i, const string& s2, int j) {
-    if (i == s1.size()) {
-      return 0;
+  void find(const vector<int>& nums, int key, int left, int right, int target) {
+    while (left < right) {
+      int sum = key + nums[left] + nums[right];
+      if (sum == target) {
+        flag = true;
+        res = sum;
+        return;
+      } else if (sum < target) {
+        ++left;
+        if (target-sum < min) {
+          min = target-sum;
+          res = sum;
+        }
+      } else {
+        --right;
+        if (sum-target < min) {
+          min = sum - target;
+          res = sum;
+        }
+      }
     }
-
-    if (j == s2.size()) {
-      return 0;
-    }
-
-    if (cache[i][j]) {
-      return cache[i][j];
-    }
-
-    if (s1[i] == s2[j]) {
-      cache[i][j] = 1 + dp(s1, i+1, s2, j+1);
-    } else {
-      cache[i][j] = std::max(dp(s1, i+1, s2, j), dp(s1, i, s2, j+1));
-    }
-
-    return cache[i][j];
   }
 
-  int longestPalindromeSubseq(string s) {
-    if (s.empty()) {
+  int threeSumClosest(vector<int>& nums, int target) {
+    if (nums.size() < 3) {
       return 0;
     }
 
-    if (s.size() == 1) {
-      return 1;
+    std::sort(nums.begin(), nums.end());
+    for (int i=0; i<nums.size(); i++) {
+      if (flag) {
+        break;
+      }
+      find(nums, nums[i], i+1, nums.size()-1, target);
     }
 
-    cache.resize(s.size());
-    for (auto& nums : cache) {
-      nums.resize(s.size());
-    }
-
-    string rs = s;
-    std::reverse(rs.begin(), rs.end());
-
-
-    return dp(s, 0, rs, 0);
+    return res;
   }
 };
 
 int main() {
+  vector<int> input{1,1,-1,-1,3};
   Solution sol;
-  std::cout << sol.longestPalindromeSubseq("bbbab") << std::endl;
+  std::cout << sol.threeSumClosest(input, -1) << std::endl;
   return 0;
 }

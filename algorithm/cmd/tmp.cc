@@ -28,22 +28,22 @@ struct Op {
 };
 
 int partition(vector<int>& nums, int left, int right) {
-  int key = left + (right - left) / 2;
-  int val = nums[key];
-
+  int val = nums[left];
   while (left < right) {
-    while (left < right && nums[right] > val) {
+    while (left < right && nums[right] >= val) {
       --right;
     }
+    nums[left] = nums[right];
 
-    while (left < right && nums[left] < val) {
+    while (left < right && nums[left] <= val) {
       ++left;
     }
-
-    swap(nums[left], nums[right]);
+    nums[right] = nums[left];
   }
 
-  return key;
+  nums[left] = val;
+
+  return left;
 }
 
 int quickSort(vector<int>& nums, int low, int high) {
@@ -144,7 +144,8 @@ void print(const vector<int>& nums) {
 }
 
 int main() {
-  read(0, nullptr, 0);
-
+  vector<int> input{2,0,1};
+  quickSort(input, 0, input.size()-1);
+  print(input);
   return 0;
 }
