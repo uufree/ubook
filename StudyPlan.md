@@ -2,9 +2,10 @@
 
 [TOC]
 
-- 数据结构Plus
-- 设计模式Plus
-- 仔细思考方方面面的细节问题
+## Goal
+
+- **2021**：构建后台开发知识体系
+- **2022**：深度探索云原生、数据库领域
 
 ## Partation 00
 
@@ -50,7 +51,6 @@
 - Mysql
   - 《Mysql必知必会》
   - 《Innodb存储引擎》
-  - 《数据密集型应用系统设计》
 
 ## Partation 06
 
@@ -71,37 +71,67 @@
 - Golang
   - 纯粹的golang基础
 
-## Plans
+## Partation 09
 
-- zk
+- 时间：2022.03.21～2021.03.31
+- 《数据密集型应用系统设计》
+- 《微服务设计模式》
+- seaweedfs源码
+
+## Partation 10
+
+- 时间：2022.04.01～2021.04.30
+- docker、k8s
+- 《领域驱动设计》
+- 《数据库系统实现》
+
+## Partation 11
+
+- 时间：2022.04.01～2021.04.30
+- istio
+
+## Partation 12
+
+- 时间：2022.05.01～2022.05.31
 - etcd
+
+## Partation 13
+
+- 时间：2022.06.01～2022.06.30
+- zookeeper
+
+## Partation 14
+
+- 时间：2022.07.01～2022.07.31
+- postgresql
+
+## Partation 15
+
+- 时间：2022.08.01～2022.08.31
+- tidb
+
+## Partation 16
+
+- 时间：2022.09.01～2022.09.30
+- hbase
+
+## Partation 17
+
+- 时间：2022.10.01～2022.10.31
+- elasticsearch
+
+## Partation 18
+
+- 时间：2022.11.01～2022.11.30
 - cassandra
-- es
 
+## Partation 19
 
+- 时间：2022.12.01～2022.12.31
+- leveldb、rocksdb
 
 
 
-1. 产出
-   - radar 2.4 / 2.5 / 国产化
-     - 支持业务层以图搜图、图像布控模块、以脸搜图、人脸布控模块开发
-     - 对接Lyra中台；对接SFD特征搜索服务
-   - spock 0.2
-     - 使用Kubeflow Pipeline完成训练模块的设计、开发与测试
-     - 深度调研Pipeline IR的实现及可用性分析
-     - 封装KFP Artifacts，供其他模块使用
-   - 光伏项目
-     - 对接外部供应商服务（Icc Server）
-     - 对接三维数字团队服务
-     - 人脸模块的设计、开发与测试
-     - Callback Gateway模块的设计与实现
-2. 核心优势
-   - 有完整的知识框架，有效支持全周期的项目开发
-   - 沟通能力不错，有效支持跨团队合作
-   - 了解完整的敏捷开发模式，可以独立规划设计、开发、测试全流程
-3. 预期与目标
-   - 深入SDK开发全流程
-   - 可以独立负责一个完整的项目
 
 
 
@@ -111,89 +141,18 @@
 
 
 
-\# Created by cloud-init on instance boot automatically, do not edit.
 
-\#
 
-BOOTPROTO=dhcp
 
-DEVICE=eth0
 
-HWADDR=fa:16:3e:a7:1a:05
 
-MTU=1500
 
-ONBOOT=yes
 
-STARTMODE=auto
 
-TYPE=Ethernet
 
-USERCTL=no
 
 
 
-Kernel IP routing table
 
-Destination   Gateway     Genmask     Flags Metric Ref  Use Iface
 
-0.0.0.0     10.53.4.1    0.0.0.0     UG  0   0    0 eth0
-
-10.53.4.0    0.0.0.0     255.255.252.0  U   0   0    0 eth0
-
-10.53.24.0   0.0.0.0     255.255.252.0  U   0   0    0 eth0
-
-169.254.0.0   0.0.0.0     255.255.0.0   U   1002  0    0 eth0
-
-169.254.169.254 10.53.4.10   255.255.255.255 UGH  0   0    0 eth0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-\# Created by cloud-init on instance boot automatically, do not edit.
-
-\#
-
-BOOTPROTO=dhcp
-
-DEVICE=eth0
-
-HWADDR=fa:16:3e:31:7a:08
-
-MTU=1500
-
-ONBOOT=yes
-
-STARTMODE=auto
-
-TYPE=Ethernet
-
-USERCTL=no
-
-
-
-Kernel IP routing table
-
-Destination   Gateway     Genmask     Flags Metric Ref  Use Iface
-
-0.0.0.0     10.53.4.1    0.0.0.0     UG  0   0    0 eth0
-
-10.53.4.0    0.0.0.0     255.255.252.0  U   0   0    0 eth0
-
-10.53.24.0   0.0.0.0     255.255.252.0  U   0   0    0 eth0
-
-169.254.0.0   0.0.0.0     255.255.0.0   U   1002  0    0 eth0
-
-169.254.169.254 10.53.4.35   255.255.255.255 UGH  0   0    0 eth0
 
